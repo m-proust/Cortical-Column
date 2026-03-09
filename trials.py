@@ -6,6 +6,7 @@ from config.config2 import CONFIG
 from src.column import CorticalColumn
 from src.visualization import *
 from src.analysis import *
+from lgn_to_brian2_v2 import make_lgn_inputs
 
 def run_single_trial(
     config,
@@ -42,79 +43,21 @@ def run_single_trial(
 
     ##############################################
     w_ext_AMPA = CONFIG['synapses']['Q']['EXT_AMPA']
-    w_ext_NMDA = CONFIG['synapses']['Q']['EXT_NMDA']
-    
-   
-    
-   
-    # L23 = column.layers['L23']
-    # cfg_L23 = CONFIG['layers']['L23']
-   
-    
-    # L23_SOM_grp = L23.neuron_groups['SOM']
-    # N_stim_SOM = int(cfg_L23['poisson_inputs']['SOM']['N'])
-    # stim_rate_SOM = 10*Hz  
-    # L23_SOM_stimNMDA= PoissonInput(L23_SOM_grp, 'gE_NMDA', 
-    #                               N=N_stim_SOM, 
-    #                               rate=stim_rate_SOM, 
-    #                               weight=w_ext_NMDA)  
-    # column.network.add(L23_SOM_stimNMDA)
-
    
 
     column.network.run(baseline_ms * ms)
-   
-    # column.network.remove(L23_SOM_stimNMDA)
-   
-    
-   
+    lgn = make_lgn_inputs(
+            column, CONFIG,
+            npz_path='lgn_spikes_grating.npz',
+            baseline_time_ms=baseline_ms,        # 2000
+            stimuli_time_ms=post_ms,           # 1500
+            lgn_t_start=500.0,                      # gray_screen_dur = 0.5s = 500ms
+            layers_to_connect=['L4C', 'L6'],
+            drive_scale=1
+        )
 
-   
-    L4C = column.layers['L4C']
-    cfg_L4C = CONFIG['layers']['L4C']
-   
-    
-    L4C_E_grp = L4C.neuron_groups['E']
-    N_stim_E = 40
-    stim_rate_E = 40*Hz  
-    L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
-                                  N=N_stim_E, 
-                                  rate=stim_rate_E, 
-                                  weight=w_ext_AMPA)  
-    
-    
-    L4C_PV_grp = L4C.neuron_groups['PV']
-    N_stim_PV = 30
-    stim_rate_PV = 40*Hz 
-    L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
-                               N=N_stim_PV, 
-                               rate=stim_rate_PV, 
-                               weight=w_ext_AMPA*2)  
-    
-    
-    L6 = column.layers['L6']
-    cfg_L6 = CONFIG['layers']['L6']
-    L6_PV_grp = L6.neuron_groups['PV']
-    N_stim_L6_PV = int(cfg_L6['poisson_inputs']['PV']['N'])
-    stim_rate_L6_PV = 15*Hz  
-    
-    L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
-                             N=N_stim_L6_PV, 
-                             rate=stim_rate_L6_PV, 
-                             weight=w_ext_AMPA*3)
-    L6_E_grp = L6.neuron_groups['E']
-    N_stim_L6_E = int(cfg_L6['poisson_inputs']['E']['N'])
-    stim_rate_L6_E = 15*Hz  
-    
-    L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
-                             N=N_stim_L6_E, 
-                             rate=stim_rate_L6_E, 
-                             weight=w_ext_AMPA)
-
-
-
-    column.network.add(L6_E_stim, L6_PV_stim)
-    column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
+    for obj_list in lgn.values():
+        column.network.add(*obj_list)
 
 
 
@@ -141,13 +84,13 @@ def run_single_trial(
     if verbose:
         print("Computing LFP using kernel method...")
 
+    from lfp_kernel import calculate_lfp_kernel_method
     lfp_signals, time_array = calculate_lfp_kernel_method(
         spike_monitors,
         neuron_groups,
-        config['layers'],
+        CONFIG['layers'],
         electrode_positions,
-        fs=fs,
-        sim_duration_ms=total_sim_ms,  
+        sim_duration_ms=baseline_ms + post_ms
     )
 
     # from lfp_mazzoni_method import calculate_lfp_mazzoni
@@ -181,6 +124,15 @@ def run_single_trial(
         electrode_positions,
     )
 
+    spike_data = {}
+    for layer_name, layer_spike_mons in spike_monitors.items():
+        spike_data[layer_name] = {}
+        for mon_name, mon in layer_spike_mons.items():
+            spike_data[layer_name][mon_name] = {
+                "times_ms": np.array(mon.t / ms),
+                "spike_indices": np.array(mon.i),
+            }
+
     rate_data = {}
     for layer_name, layer_rate_mons in rate_monitors.items():
         rate_data[layer_name] = {}
@@ -205,9 +157,10 @@ def run_single_trial(
         "channel_labels": np.array(channel_labels, dtype=object),
         "channel_depths": np.array(channel_depths),
         "rate_data": rate_data,
+        "spike_data": spike_data,
         "baseline_ms": baseline_ms,
         "post_ms": post_ms,
-        "stim_onset_ms": baseline_ms,  
+        "stim_onset_ms": baseline_ms,
     }
 
     n_elec = len(lfp_signals)
@@ -237,7 +190,7 @@ def run_multiple_trials(
 
     os.makedirs(save_dir, exist_ok=True)
 
-    for trial_id in range(15, 15 + n_trials):
+    for trial_id in range(n_trials):
         data = run_single_trial(
             config=config,
             trial_id=trial_id,
@@ -261,6 +214,7 @@ def run_multiple_trials(
             "channel_labels": data["channel_labels"],
             "channel_depths": data["channel_depths"],
             "rate_data": data["rate_data"],
+            "spike_data": data["spike_data"],
             "baseline_ms": data["baseline_ms"],
             "post_ms": data["post_ms"],
             "stim_onset_ms": data["stim_onset_ms"],
@@ -279,6 +233,6 @@ if __name__ == "__main__":
         baseline_ms=2000,
         post_ms=1500,
         fs=10000,
-        save_dir="results/26_02",
+        save_dir="results/06_03_LGN_gratings",
         verbose=True,
     )

@@ -417,7 +417,8 @@ def plot_lfp_power_comparison_kernel(lfp_signals, time_array, electrode_position
     post_start_idx = int((baseline_time + transient_skip) / dt)
     post_end_idx = int((baseline_time + transient_skip + post_stim_duration) / dt)
 
-    for i, (elec_idx, lfp) in enumerate(lfp_signals.items()):
+    for i, elec_idx in enumerate(range(lfp_signals.shape[0])):
+        lfp = lfp_signals[elec_idx]
         ax = axes[i]
         ex, ey, ez = electrode_positions[elec_idx]
 

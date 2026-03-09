@@ -1,13 +1,9 @@
-#!/bin/bash
 
-# Exit on error
 set -e
 
-# Create log directory
 LOG_DIR="results/sweep_logs"
 mkdir -p "$LOG_DIR"
 
-# Timestamp for this batch run
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BATCH_LOG="$LOG_DIR/batch_run_${TIMESTAMP}.log"
 SAVE_DIR="results/input_sweeps/19_02_all_layers_AMPA"
@@ -58,7 +54,6 @@ run_multi() {
     local label=""
     for spec in "$@"; do
         targets_args="$targets_args --target $spec"
-        # Build a short label: replace : with _ and join with +
         local part
         part=$(echo "$spec" | tr ':' '_')
         label="${label}+${part}"
@@ -71,7 +66,6 @@ run_multi() {
 
     local run_log="$LOG_DIR/${label}_${TIMESTAMP}.log"
 
-    # shellcheck disable=SC2086
     if python input_sweep.py \
         $targets_args \
         --rate-min 0 \
@@ -90,9 +84,6 @@ run_multi() {
 }
 
 
-# =============================================================================
-# All layers x all cell types — single-population AMPA sweeps, one at a time
-# =============================================================================
 
 for layer in L23 L4AB L4C L5 L6; do
     echo "" | tee -a "$BATCH_LOG"
@@ -103,7 +94,6 @@ for layer in L23 L4AB L4C L5 L6; do
 done
 
 
-# =============================================================================
 echo "" | tee -a "$BATCH_LOG"
 echo "======================================" | tee -a "$BATCH_LOG"
 echo "Batch run completed at $(date)" | tee -a "$BATCH_LOG"

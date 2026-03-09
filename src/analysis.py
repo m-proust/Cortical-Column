@@ -90,44 +90,19 @@ def compute_power_spectrum(lfp_signal, fs=10000, nperseg=None):
 
 
 def compute_normalized_fft_magnitude(lfp_signal, fs=10000):
-    """
-    Compute normalized FFT magnitude spectrum following the paper's method.
 
-    The paper describes:
-    1. Remove DC component: x(t) - mean(x(t))
-    2. Normalize to unit energy: x_hat(t) = (x(t) - mean) / sqrt(integral of |x(t) - mean|^2)
-    3. Compute FFT magnitude: |F[x_hat(t)]|
-
-    Parameters
-    ----------
-    lfp_signal : array
-        LFP signal to analyze.
-    fs : float
-        Sampling frequency in Hz.
-
-    Returns
-    -------
-    freq : array
-        Frequency values in Hz.
-    magnitude : array
-        Normalized FFT magnitude spectrum.
-    """
-    # Remove DC component
     signal_centered = lfp_signal - np.mean(lfp_signal)
 
-    # Normalize to unit energy
     energy = np.sqrt(np.sum(signal_centered**2))
     if energy > 0:
         signal_normalized = signal_centered / energy
     else:
         signal_normalized = signal_centered
 
-    # Compute FFT magnitude
     n = len(signal_normalized)
     fft_result = rfft(signal_normalized)
     magnitude = np.abs(fft_result)
 
-    # Compute frequency axis
     freq = rfftfreq(n, d=1.0/fs)
 
     return freq, magnitude
@@ -158,95 +133,127 @@ def add_heterogeneity_to_layer(layer, config):
 
 
 
-def calculate_lfp_kernel_method(spike_monitors, neuron_groups, layer_configs, 
-                                electrode_positions, fs=10000, sim_duration_ms=1000):
+def calculate_lfp_kernel_method(spike_monitors, neuron_groups, layer_configs,
+                                electrode_positions, dt_ms=0.1, sim_duration_ms=2000):
 
-    # kernel parameters from Telenczuk et al. (this is for the human cortex unfortunately)
-    # inhibitory kernel parameters
-    A0_i = -3.4 
-    sigma_i = 2.1 
-    lambda_space = 0.2 
-    v_axon = 0.2 
-    delay_i = 10.4 
-    
-    # excitatory kernel parameters 
-    A0_e = 0.7 
-    sigma_e = 3.15
-    delay_e = 10.4 
+    lambda_space = 0.22 
+    v_axon = 0.2  
+    base_delay = 10.4   
 
-    def get_amplitude_scaling(electrode_z, layer_z_range, cell_type):
-        layer_center = np.mean(layer_z_range)
-        rel_depth = electrode_z - layer_center 
-        
+    sigma_i = 2.1       
+
+    sigma_e = 3.15  
+
+
+    depth_table = {
+        'rel_depths_mm': np.array([-0.4, 0.0, 0.4, 0.8]),
+        'i_amplitudes':  np.array([-0.2, 3.0, -1.2, 0.3]),  
+        'e_amplitudes':  np.array([-0.16, 0.48, 0.24, -0.08]), 
+    }
+
+
+    pop_lfp_weight = {
+        'E':   1.0,
+        'PV':  1.0,
+        'SOM': 0.05,  
+        'VIP': 0.02,
+    }
+
+    def get_depth_amplitude(rel_depth_mm, cell_type):
+        depths = depth_table['rel_depths_mm']
         if cell_type == 'inhibitory':
-            if abs(rel_depth) < 0.1:  # Within 100 um of soma
-                return 1.0
-            elif rel_depth > 0.2:  # Superficial (>200 um above)
-                return -0.4
-            elif rel_depth < -0.2:  # Deep (>200 um below)
-                return -0.07
-            else:
-                return 0.5
-        else: 
-            if abs(rel_depth) < 0.1:
-                return 0.16 
-            else:
-                return 0.08
-    
-    def gaussian_kernel(t, t_spike, sigma, amplitude, delay):
-        t_peak = t_spike + delay
-        return amplitude * np.exp(-(t - t_peak)**2 / (2 * sigma**2))
-    
-    n_samples = int(sim_duration_ms * fs / 1000)
-    time_array = np.linspace(0, sim_duration_ms, n_samples)
-    dt = time_array[1] - time_array[0]
-    
-    lfp_signals = {i: np.zeros(n_samples) for i in range(len(electrode_positions))}
-    
+            amps = depth_table['i_amplitudes']
+        else:
+            amps = depth_table['e_amplitudes']
+        return np.interp(rel_depth_mm, depths, amps)
+
+    n_samples = int(sim_duration_ms / dt_ms)
+    time_array = np.arange(n_samples) * dt_ms 
+
+    kernel_half_width_ms = 30.0  
+    kernel_samples = int(2 * kernel_half_width_ms / dt_ms)
+    kernel_t = np.arange(kernel_samples) * dt_ms - kernel_half_width_ms 
+
+    def make_kernel_template(sigma):
+        """Gaussian kernel template, peak at t=0, unit amplitude."""
+        return np.exp(-kernel_t**2 / (2 * sigma**2))
+
+    template_i = make_kernel_template(sigma_i)
+    template_e = make_kernel_template(sigma_e)
+
+    lfp_signals = np.zeros((len(electrode_positions), n_samples))
+
     for layer_name, layer_spike_mons in spike_monitors.items():
         layer_config = layer_configs[layer_name]
         z_range = layer_config['coordinates']['z']
-        
+        layer_center_z = np.mean(z_range)
+
         for pop_name in ['E', 'PV', 'SOM', 'VIP']:
             spike_key = f'{pop_name}_spikes'
             if spike_key not in layer_spike_mons:
                 continue
-            
+
             spike_mon = layer_spike_mons[spike_key]
             neuron_grp = neuron_groups[layer_name][pop_name]
-            
+
             is_excitatory = (pop_name == 'E')
-            A0 = A0_e if is_excitatory else A0_i
             sigma = sigma_e if is_excitatory else sigma_i
-            delay = delay_e if is_excitatory else delay_i
-            
+            template = template_e if is_excitatory else template_i
+            type_weight = pop_lfp_weight[pop_name]
+
+            if type_weight < 0.01:
+                continue 
+
             spike_times_ms = np.array(spike_mon.t / ms)
             spike_indices = np.array(spike_mon.i)
-            
             neuron_x = np.array(neuron_grp.x / mm)
             neuron_y = np.array(neuron_grp.y / mm)
             neuron_z = np.array(neuron_grp.z / mm)
-            
-            for spike_t_ms, neuron_idx in zip(spike_times_ms, spike_indices):
-                nx, ny, nz = neuron_x[neuron_idx], neuron_y[neuron_idx], neuron_z[neuron_idx]
-                
-                for elec_idx, (ex, ey, ez) in enumerate(electrode_positions):
-                    distance = np.sqrt((nx - ex)**2 + (ny - ey)**2 + (nz - ez)**2)
-                    
-                    A_dist = A0 * np.exp(-distance / lambda_space)
-                    
-                    depth_scale = get_amplitude_scaling(ez, z_range, 
-                                                       'excitatory' if is_excitatory else 'inhibitory')
-                    A_final = A_dist * depth_scale
-                    
-                    delay_total = delay + distance / v_axon
-                    
-                    kernel = gaussian_kernel(time_array, spike_t_ms, sigma, A_final, delay_total)
-                    lfp_signals[elec_idx] += kernel
-    
+
+            n_neurons = len(neuron_x)
+
+            for elec_idx, (ex, ey, ez) in enumerate(electrode_positions):
+                rel_depth = ez - layer_center_z
+                cell_type = 'excitatory' if is_excitatory else 'inhibitory'
+                A_depth = get_depth_amplitude(rel_depth, cell_type)
+
+          
+                distances = np.sqrt(
+                    (neuron_x - ex)**2 + (neuron_y - ey)**2 + (neuron_z - ez)**2
+                )
+
+                A_spatial = np.exp(-distances / lambda_space)  
+
+                delays = base_delay + distances / v_axon 
+
+      
+                delay_bins = np.round(delays / dt_ms).astype(int)
+                unique_delays = np.unique(delay_bins)
+
+                for d_bin in unique_delays:
+                    neuron_mask = (delay_bins == d_bin)
+                    neuron_ids = np.where(neuron_mask)[0]
+
+                    weighted_rate = np.zeros(n_samples)
+                    for nid in neuron_ids:
+                        spike_mask = (spike_indices == nid)
+                        if not np.any(spike_mask):
+                            continue
+                        st = spike_times_ms[spike_mask]
+                        bins = np.clip((st / dt_ms).astype(int), 0, n_samples - 1)
+                        np.add.at(weighted_rate, bins, A_spatial[nid])
+
+                    convolved = np.convolve(weighted_rate, template, mode='same')
+
+                    shift = int(d_bin)
+                    if shift > 0 and shift < n_samples:
+                        lfp_signals[elec_idx, shift:] += (
+                            A_depth * type_weight * convolved[:-shift]
+                        )
+                    else:
+                        lfp_signals[elec_idx] += A_depth * type_weight * convolved
+
     return lfp_signals, time_array
-
-
 
 
 

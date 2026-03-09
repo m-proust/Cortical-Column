@@ -20,27 +20,6 @@ def run_single_rate(
     fs=10000,
     verbose=True,
 ):
-    """
-    Run a single stimulation trial.
-
-    Parameters
-    ----------
-    targets : dict
-        Dictionary mapping (layer, pop, input_type) tuples to weight scales.
-        Example: {('L4C', 'E', 'AMPA'): 1.0, ('L4C', 'PV', 'PV'): 2.0}
-
-        input_type can be:
-        - 'AMPA': excitatory input targeting gE_AMPA (default if using 2-tuple key)
-        - 'PV': inhibitory input targeting gPV (PV-like GABA)
-        - 'SOM': inhibitory input targeting gSOM (SOM-like GABA)
-        - 'VIP': inhibitory input targeting gVIP (VIP-like GABA)
-
-        For backwards compatibility, 2-tuple keys like ('L4C', 'E') are
-        interpreted as ('L4C', 'E', 'AMPA').
-
-        The weight scale multiplies the base external weight.
-    """
-
 
     if base_seed is None:
         base_seed = config['simulation']['RANDOM_SEED']
@@ -53,7 +32,6 @@ def run_single_rate(
     b2.defaultclock.dt = config['simulation']['DT']
 
     if verbose:
-        # Handle both 2-tuple and 3-tuple keys for display
         parts = []
         for key, scale in targets.items():
             if len(key) == 2:
@@ -69,20 +47,17 @@ def run_single_rate(
     column = CorticalColumn(column_id=0, config=config)
     all_monitors = column.get_all_monitors()
 
-    # Add external stimulation BEFORE running baseline - so network stabilizes with input
     w_ext_AMPA = config['synapses']['Q']['EXT_AMPA']
 
-    # Mapping from input_type to conductance variable and base weight
     input_type_map = {
         'AMPA': ('gE_AMPA', w_ext_AMPA),
-        'PV': ('gPV', w_ext_AMPA),      # Use same base weight, can be scaled
+        'PV': ('gPV', w_ext_AMPA),    
         'SOM': ('gSOM', w_ext_AMPA),
         'VIP': ('gVIP', w_ext_AMPA),
     }
 
     if stim_rate_hz > 0:
         for target_key, weight_scale in targets.items():
-            # Handle both 2-tuple (backwards compat) and 3-tuple keys
             if len(target_key) == 2:
                 target_layer, target_pop = target_key
                 input_type = 'AMPA'
@@ -131,7 +106,6 @@ def run_single_rate(
 
     from lfp_mazzoni_method import calculate_lfp_mazzoni
 
-    # Compute LFP
     lfp_signals, time_array = calculate_lfp_mazzoni(
         spike_monitors,
         neuron_groups,
@@ -200,19 +174,7 @@ def run_rate_sweep(
     save_dir="results/input_sweeps",
     verbose=True,
 ):
-    """
-    Run a sweep over different stimulation rates.
-
-    Parameters
-    ----------
-    targets : dict
-        Dictionary mapping (layer, pop, input_type) tuples to weight scales.
-        Example: {('L4C', 'E', 'AMPA'): 1.0, ('L4C', 'PV', 'PV'): 2.0}
-
-        input_type can be 'AMPA', 'PV', 'SOM', or 'VIP'.
-        For backwards compatibility, 2-tuple keys are interpreted as AMPA.
-    """
-
+ 
     if base_seed is None:
         base_seed = config['simulation']['RANDOM_SEED']
 
@@ -252,7 +214,6 @@ def run_rate_sweep(
 
     rate_min = int(min(rate_values))
     rate_max = int(max(rate_values))
-    # Build filename from targets (handle both 2-tuple and 3-tuple keys)
     targets_str_parts = []
     target_layers = []
     target_pops = []
@@ -276,7 +237,6 @@ def run_rate_sweep(
     fname = f"sweep_{targets_str}_{rate_min}-{rate_max}Hz.npz"
     fpath = os.path.join(save_dir, fname)
 
-    # Convert to numpy arrays for saving
     target_layers = np.array(target_layers)
     target_pops = np.array(target_pops)
     input_types = np.array(input_types)
@@ -313,24 +273,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Run input sweep simulations',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Single target (old style still works):
-  python input_sweep.py --layer L4C --pop E --input-type AMPA --weight-scale 1.0
-
-  # Multiple targets using --target (new style):
-  python input_sweep.py --target L4C:E:AMPA:1.0 --target L4C:PV:AMPA:1.5
-
-  # --target format: LAYER:POP:INPUT_TYPE:WEIGHT_SCALE
-  #   INPUT_TYPE choices: AMPA, PV, SOM, VIP
-        """
+     
     )
-    # New multi-target argument (can be repeated)
     parser.add_argument('--target', type=str, action='append', dest='targets_list',
                         metavar='LAYER:POP:INPUT_TYPE:WEIGHT',
                         help='Target spec as LAYER:POP:INPUT_TYPE:WEIGHT (repeatable). '
                              'Example: --target L4C:E:AMPA:1.0 --target L4C:PV:AMPA:1.5')
-    # Legacy single-target arguments (kept for backwards compatibility)
     parser.add_argument('--layer', type=str, default=None,
                         help='[Legacy] Target layer (e.g., L4C). Use --target instead.')
     parser.add_argument('--pop', type=str, default=None,
@@ -357,7 +305,6 @@ Examples:
 
     args = parser.parse_args()
 
-    # Build targets dict: prefer --target list, fall back to legacy --layer/--pop
     targets = {}
     if args.targets_list:
         for spec in args.targets_list:
@@ -374,7 +321,6 @@ Examples:
         parser.error("Provide either --target LAYER:POP:INPUT_TYPE:WEIGHT (repeatable) "
                      "or legacy --layer + --pop arguments.")
 
-    # Generate rate values
     rate_values = np.arange(args.rate_min, args.rate_max + args.rate_step/2, args.rate_step)
 
     targets_display = ", ".join(f"{p}@{l}[{it}]x{w}" for (l, p, it), w in targets.items())
