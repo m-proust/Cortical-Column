@@ -45,7 +45,7 @@ def main():
         stimuli_time_ms=stimuli_time,           # 1500
         lgn_t_start=500.0,                      # gray_screen_dur = 0.5s = 500ms
         layers_to_connect=['L4C', 'L6'],
-        drive_scale=1
+        drive_scale=2
     )
 
     for obj_list in lgn.values():

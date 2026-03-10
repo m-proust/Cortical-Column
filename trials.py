@@ -233,6 +233,6 @@ if __name__ == "__main__":
         baseline_ms=2000,
         post_ms=1500,
         fs=10000,
-        save_dir="results/06_03_LGN_gratings",
+        save_dir="results/09_03_LGN_gratings",
         verbose=True,
     )
