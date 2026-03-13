@@ -12,3 +12,5 @@ src/cleo_plots.py
 .DS_Store
 /venv
 *.png
+*.npz
+*.db

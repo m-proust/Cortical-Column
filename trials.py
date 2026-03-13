@@ -6,14 +6,14 @@ from config.config2 import CONFIG
 from src.column import CorticalColumn
 from src.visualization import *
 from src.analysis import *
-from lgn_to_brian2_v2 import make_lgn_inputs
+from lgn_to_brian2_v2 import make_lgn_inputs_split
 
 def run_single_trial(
     config,
     trial_id=0,
     base_seed=None,
-    baseline_ms=1000,    
-    post_ms=500,      
+    gray_screen_ms=2000,
+    grating_ms=2000,
     fs=10000,
     verbose=True,
 ):
@@ -28,6 +28,8 @@ def run_single_trial(
     b2.start_scope()
     b2.defaultclock.dt = config['simulation']['DT']
 
+    total_time = gray_screen_ms + grating_ms
+
     if verbose:
         print(f"\n=== Running trial {trial_id} with seed {trial_seed} ===")
         print("Creating cortical column...")
@@ -40,28 +42,20 @@ def run_single_trial(
 
     all_monitors = column.get_all_monitors()
 
-
-    ##############################################
-    w_ext_AMPA = CONFIG['synapses']['Q']['EXT_AMPA']
-   
-
-    column.network.run(baseline_ms * ms)
-    lgn = make_lgn_inputs(
-            column, CONFIG,
-            npz_path='lgn_spikes_grating.npz',
-            baseline_time_ms=baseline_ms,        # 2000
-            stimuli_time_ms=post_ms,           # 1500
-            lgn_t_start=500.0,                      # gray_screen_dur = 0.5s = 500ms
-            layers_to_connect=['L4C', 'L6'],
-            drive_scale=1
-        )
+    lgn = make_lgn_inputs_split(
+        column, CONFIG,
+        npz_path='lgn_spikes_12_03.npz',
+        total_lgn_duration_ms=total_time,
+        layers_to_connect=['L4C', 'L6'],
+        gray_drive_scale=0.6,
+        grating_drive_scale=1.2,
+        gray_duration_ms=gray_screen_ms,
+    )
 
     for obj_list in lgn.values():
         column.network.add(*obj_list)
 
-
-
-    column.network.run(post_ms * ms)
+    column.network.run(total_time * ms)
 
     if verbose:
         print("Simulation complete")
@@ -79,8 +73,6 @@ def run_single_trial(
 
     electrode_positions = CONFIG['electrode_positions']
 
-    total_sim_ms = baseline_ms + post_ms
-
     if verbose:
         print("Computing LFP using kernel method...")
 
@@ -90,7 +82,7 @@ def run_single_trial(
         neuron_groups,
         CONFIG['layers'],
         electrode_positions,
-        sim_duration_ms=baseline_ms + post_ms
+        sim_duration_ms=total_time
     )
 
     # from lfp_mazzoni_method import calculate_lfp_mazzoni
@@ -158,9 +150,9 @@ def run_single_trial(
         "channel_depths": np.array(channel_depths),
         "rate_data": rate_data,
         "spike_data": spike_data,
-        "baseline_ms": baseline_ms,
-        "post_ms": post_ms,
-        "stim_onset_ms": baseline_ms,
+        "baseline_ms": gray_screen_ms,
+        "post_ms": grating_ms,
+        "stim_onset_ms": gray_screen_ms,
     }
 
     n_elec = len(lfp_signals)
@@ -179,8 +171,8 @@ def run_multiple_trials(
     config,
     n_trials=10,
     base_seed=None,
-    baseline_ms=1000,
-    post_ms=500,
+    gray_screen_ms=2000,
+    grating_ms=2000,
     fs=10000,
     save_dir="results/trials",
     verbose=True,
@@ -195,8 +187,8 @@ def run_multiple_trials(
             config=config,
             trial_id=trial_id,
             base_seed=base_seed,
-            baseline_ms=baseline_ms,
-            post_ms=post_ms,
+            gray_screen_ms=gray_screen_ms,
+            grating_ms=grating_ms,
             fs=fs,
             verbose=verbose,
         )
@@ -230,9 +222,9 @@ if __name__ == "__main__":
     run_multiple_trials(
         CONFIG,
         n_trials=50,
-        baseline_ms=2000,
-        post_ms=1500,
+        gray_screen_ms=2000,
+        grating_ms=2000,
         fs=10000,
-        save_dir="results/09_03_LGN_gratings",
+        save_dir="results/13_03_LGN_gratings",
         verbose=True,
     )
