@@ -6,7 +6,7 @@ from brian2 import *
 DEFAULT_TARGET_DRIVE = {
     'L4C': {
         'E':  2000.0,
-        'PV': 3000.0,
+        'PV': 2000.0,
     },
     'L6': {
         'E':  375.0,

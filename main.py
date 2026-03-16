@@ -14,35 +14,108 @@ def main():
     b2.defaultclock.dt = CONFIG['simulation']['DT']
 
     
-    gray_screen_time = 2000  # ms — LGN spontaneous activity (gray screen)
-    grating_time = 2000      # ms — LGN evoked activity (gratings)
-    total_time = gray_screen_time + grating_time  # 4000 ms total
+    baseline_time = 2000 # In ms, time during which to run the baseline simulation
+    stimuli_time = 2000 # In ms, time during which to run the simulation after adding the stimuli
 
     print(" Creating cortical column...")
     column = CorticalColumn(column_id=0, config=CONFIG)
-
-
+ 
+    
     # for layer_name, layer in column.layers.items():
     #     add_heterogeneity_to_layer(layer, CONFIG) # optional
-
+    
     all_monitors = column.get_all_monitors()
+    
+   
 
-    from lgn_to_brian2_v2 import make_lgn_inputs_split
+    w_ext_AMPA = CONFIG['synapses']['Q']['EXT_AMPA']
+    # w_ext_NMDA = CONFIG['synapses']['Q']['EXT_NMDA']
+    
+   
+    
+    # L23 = column.layers['L23']
+    # cfg_L23 = CONFIG['layers']['L23']
+   
+    
+    # L23_SOM_grp = L23.neuron_groups['SOM']
+    # N_stim_SOM = int(cfg_L23['poisson_inputs']['SOM']['N'])
+    # stim_rate_SOM = 10*Hz  
+    # L23_SOM_stimNMDA= PoissonInput(L23_SOM_grp, 'gE_NMDA', 
+    #                               N=N_stim_SOM, 
+    #                               rate=stim_rate_SOM, 
+    #                               weight=w_ext_NMDA)  
+    # column.network.add(L23_SOM_stimNMDA)
 
-    lgn = make_lgn_inputs_split(
-        column, CONFIG,
-        npz_path='lgn_spikes_12_03.npz',
-        total_lgn_duration_ms=total_time,
-        layers_to_connect=['L4C', 'L6'],
-        gray_drive_scale=0.6,
-        grating_drive_scale=1.2,
-        gray_duration_ms=gray_screen_time,
-    )
+   
 
-    for obj_list in lgn.values():
-        column.network.add(*obj_list)
+    column.network.run(baseline_time * ms)
+   
+    # column.network.remove(L23_SOM_stimNMDA)
+    # L23 = column.layers['L23']
+    # cfg_L23 = CONFIG['layers']['L23']
+   
+    
+    # L23_VIP_grp = L23.neuron_groups['VIP']
+    # N_stim_VIP = int(cfg_L23['poisson_inputs']['VIP']['N'])
+    # stim_rate_VIP = 6*Hz  
+    # L23_VIP_stim= PoissonInput(L23_VIP_grp, 'gE_AMPA', 
+    #                               N=N_stim_VIP, 
+    #                               rate=stim_rate_VIP, 
+    #                               weight=w_ext_AMPA)  
+    # column.network.add(L23_VIP_stim)
 
-    column.network.run(total_time * ms)
+   
+    
+
+
+    L4C = column.layers['L4C']
+    cfg_L4C = CONFIG['layers']['L4C']
+   
+    
+    L4C_E_grp = L4C.neuron_groups['E']
+    N_stim_E = 40
+    stim_rate_E = 20*Hz  
+    L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
+                                  N=N_stim_E, 
+                                  rate=stim_rate_E, 
+                                  weight=w_ext_AMPA*2)  
+    
+    
+    L4C_PV_grp = L4C.neuron_groups['PV']
+    N_stim_PV = 30
+    stim_rate_PV = 20*Hz 
+    L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
+                               N=N_stim_PV, 
+                               rate=stim_rate_PV, 
+                               weight=w_ext_AMPA*2)  
+    
+    
+    L6 = column.layers['L6']
+    cfg_L6 = CONFIG['layers']['L6']
+    L6_PV_grp = L6.neuron_groups['PV']
+    N_stim_L6_PV = int(cfg_L6['poisson_inputs']['PV']['N'])
+    stim_rate_L6_PV = 10*Hz  
+    
+    L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
+                             N=N_stim_L6_PV, 
+                             rate=stim_rate_L6_PV, 
+                             weight=w_ext_AMPA*2)
+    L6_E_grp = L6.neuron_groups['E']
+    N_stim_L6_E = int(cfg_L6['poisson_inputs']['E']['N'])
+    stim_rate_L6_E = 10*Hz  
+    
+    L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
+                             N=N_stim_L6_E, 
+                             rate=stim_rate_L6_E, 
+                             weight=w_ext_AMPA*2)
+
+
+
+    column.network.add(L6_E_stim, L6_PV_stim)
+    column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
+
+
+    column.network.run(stimuli_time* ms)
 
     print("Simulation complete")
     
@@ -75,14 +148,15 @@ def main():
         }
 
     electrode_positions = CONFIG['electrode_positions']
-    from lfp_kernel import calculate_lfp_kernel_method
+
     print("Computing LFP using kernel method...")
+    from lfp_kernel import calculate_lfp_kernel_method
     lfp_signals, time_array = calculate_lfp_kernel_method(
         spike_monitors,
         neuron_groups,
         CONFIG['layers'],
         electrode_positions,
-        sim_duration_ms=total_time
+        sim_duration_ms=baseline_time + stimuli_time
     )
     # from lfp_mazzoni_method import calculate_lfp_mazzoni
 
@@ -101,16 +175,16 @@ def main():
         electrode_positions
     )
 
-    fig_raster = plot_raster(spike_monitors, gray_screen_time, grating_time, CONFIG['layers'])
+    fig_raster = plot_raster(spike_monitors, baseline_time, stimuli_time, CONFIG['layers'])
 
     fig_power_lfp = plot_lfp_power_comparison_kernel(
                         lfp_signals,
                         time_array,
                         electrode_positions,
-                        baseline_time=gray_screen_time,
-                        pre_stim_duration=300,
-                        post_stim_duration=300,
-                        transient_skip=200
+                        baseline_time=baseline_time,
+                        pre_stim_duration=1000,
+                        post_stim_duration=1000,
+                        transient_skip=500
                     )
 
     fig_power_bipolar = plot_bipolar_power_comparison_kernel(
@@ -118,20 +192,38 @@ def main():
                         channel_labels,
                         channel_depths,
                         time_array,
-                        baseline_time=gray_screen_time,
-                        pre_stim_duration=500,
-                        post_stim_duration=500,
+                        baseline_time=baseline_time,
+                        pre_stim_duration=1000,
+                        post_stim_duration=1000,
                         transient_skip=500
                     )
 
 
-    fig_rate = plot_rate(rate_monitors, CONFIG['layers'], gray_screen_time, grating_time,
-                 smooth_window=15*ms,
-                 ylim_max=80,
-                 show_stats=True)
+    fig_rate = plot_rate(rate_monitors, CONFIG['layers'], baseline_time, stimuli_time,
+                 smooth_window=15*ms, 
+                 ylim_max=80,      
+                 show_stats=True)  
     fig_lfp = plot_lfp_comparison(lfp_signals, bipolar_signals, time_array, electrode_positions,
                         channel_labels, channel_depths, figsize=(18, 12), time_range=(1000, 3500))
-    
+
+    # ---- Pairwise Phase Consistency (PPC) ----
+    print("Computing Pairwise Phase Consistency...")
+    fig_ppc = plot_ppc_by_layer(
+        spike_monitors,
+        bipolar_signals,
+        channel_depths,
+        time_array,
+        CONFIG['layers'],
+        freq_range=(1, 100),
+        n_freqs=50,
+        fs=10000,
+        baseline_time=baseline_time,
+        stimuli_time=stimuli_time,
+        min_spikes_per_neuron=5,
+        bandwidth=4.0,
+        smooth_sigma=1.5,
+    )
+
     plt.show()
 
 

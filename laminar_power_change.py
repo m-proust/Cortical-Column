@@ -8,11 +8,11 @@ from matplotlib.gridspec import GridSpec
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("Paired")
 
-base_path = "results/06_03_LGN_gratings"
+base_path = "results/trials_15_03"
 
 
 
-n_trials = 50
+n_trials = 49
 all_trials = []
 
 for trial_idx in range(n_trials):
@@ -109,10 +109,9 @@ def pmtm(x, NW=2, nfft=None, fs=1.0):
 def plot_laminar_spectral_profile(all_trials, pre_window_ms=1000, post_window_ms=1000,
                                  post_start_ms=500,
                                  freq_range=(1, 100), log_freq=True, remove_mean=True,
-                                 do_detrend=True, NW=2):
+                                 do_detrend=True, fmax=100):
 
-    from scipy.signal import detrend
-    from scipy.signal.windows import dpss
+    from scipy.signal import detrend, welch
     from matplotlib.colors import TwoSlopeNorm
     import numpy as np
     import matplotlib.pyplot as plt
@@ -128,31 +127,10 @@ def plot_laminar_spectral_profile(all_trials, pre_window_ms=1000, post_window_ms
     else:
         bipolar_depths = channel_depths[:n_channels]
 
-    # ---------- Multitaper PSD ----------
-    def pmtm(x, NW=2, nfft=None, fs=1.0):
-        N = len(x)
-        if nfft is None:
-            nfft = 2 ** int(np.ceil(np.log2(N)))
-
-        K = int(2 * NW - 1)
-        tapers, ratios = dpss(N, NW, K, return_ratios=True)
-
-        psd = np.zeros(nfft)
-        for k in range(K):
-            X = np.fft.fft(x * tapers[k], n=nfft)
-            psd += ratios[k] * np.abs(X) ** 2
-
-        psd /= np.sum(ratios)
-        psd /= fs
-
-        f = np.fft.fftfreq(nfft, d=1/fs)
-        mask = f >= 0
-        return f[mask], psd[mask]
-
-    # ---------- PSD computation ----------
+    # ---------- PSD computation (Welch, matching main.py) ----------
     all_psd_pre, all_psd_post = [], []
 
-    for ch in range(3,n_channels):
+    for ch in range(n_channels):
         pre_trials, post_trials = [], []
 
         for trial in all_trials:
@@ -179,9 +157,9 @@ def plot_laminar_spectral_profile(all_trials, pre_window_ms=1000, post_window_ms
                 pre -= np.mean(pre)
                 post -= np.mean(post)
 
-            nfft = 2 ** int(np.ceil(np.log2(len(pre))))
-            f, psd_pre = pmtm(pre, NW=NW, nfft=nfft, fs=fs)
-            _, psd_post = pmtm(post, NW=NW, nfft=nfft, fs=fs)
+            nperseg = min(len(pre), 100 * min(1024, len(pre) // 4))
+            f, psd_pre = welch(pre, fs=fs, nperseg=nperseg, window='hann')
+            _, psd_post = welch(post, fs=fs, nperseg=nperseg, window='hann')
 
             pre_trials.append(psd_pre)
             post_trials.append(psd_post)
@@ -254,7 +232,7 @@ def plot_laminar_spectral_profile(all_trials, pre_window_ms=1000, post_window_ms
         for ax in axes:
             ax.set_xscale('log')
 
-    plt.suptitle(f'Laminar Spectral Profile (Multitaper, NW={NW})', fontsize=16)
+    plt.suptitle('Laminar Spectral Profile (Welch)', fontsize=16)
     plt.show()
 
     return f_plot, bipolar_depths, psd_pre_db, psd_post_db, pct_change
@@ -265,10 +243,9 @@ f_plot, depths, psd_pre, psd_post, psd_change = plot_laminar_spectral_profile(
     all_trials,
     pre_window_ms=300,
     post_window_ms=300,
-    post_start_ms=200,
+    post_start_ms=1000,
     freq_range=(1, 120),
     log_freq=False,
     remove_mean=True,
     do_detrend=True,
-    NW=2
 )

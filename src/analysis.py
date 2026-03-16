@@ -3,11 +3,12 @@ Analysis functions.
 """
 import numpy as np
 import pywt
-from scipy.signal import welch, spectrogram
+from scipy.signal import welch, spectrogram, hilbert, butter, filtfilt
 from brian2 import *
 from scipy.ndimage import gaussian_filter1d
 from spectrum import pmtm
 from numpy.fft import rfft, rfftfreq
+import matplotlib.pyplot as plt
 
 def calculate_lfp(monitor, neuron_type='E'):
     """Calculate LFP using current inputs into E neurons, Mazzoni method"""
@@ -459,6 +460,248 @@ def plot_rate_fft(rate_monitors, fmax=150, method='welch'):
     fig.suptitle('Global population rate power spectrum by layer',
                  fontsize=14, fontweight='bold', y=0.98)
     plt.tight_layout(rect=[0.04, 0.04, 1.0, 0.95])
+
+    return fig
+
+
+def compute_ppc(spike_times_ms, lfp_signal, time_array, fs, freq, bandwidth=2.0):
+    """
+    Compute Pairwise Phase Consistency (Vinck et al., 2010) at a single frequency.
+
+    For each spike, extract the LFP phase at that frequency using a narrow bandpass
+    + Hilbert transform. Then compute PPC as the mean cosine similarity of all
+    spike-phase pairs.
+
+    Returns PPC value (float) or np.nan if fewer than 2 spikes.
+    """
+    if len(spike_times_ms) < 2:
+        return np.nan
+
+    # Narrow bandpass around target frequency
+    f_lo = max(freq - bandwidth / 2, 0.5)
+    f_hi = freq + bandwidth / 2
+    nyq = fs / 2.0
+    if f_hi >= nyq:
+        return np.nan
+
+    b, a = butter(3, [f_lo / nyq, f_hi / nyq], btype='band')
+    filtered = filtfilt(b, a, lfp_signal)
+
+    # Instantaneous phase via Hilbert transform
+    analytic = hilbert(filtered)
+    inst_phase = np.angle(analytic)
+
+    # Get phase at each spike time
+    spike_indices = np.searchsorted(time_array, spike_times_ms)
+    spike_indices = spike_indices[(spike_indices >= 0) & (spike_indices < len(inst_phase))]
+
+    if len(spike_indices) < 2:
+        return np.nan
+
+    phases = inst_phase[spike_indices]
+    n = len(phases)
+
+    # PPC = (1/(n*(n-1))) * sum_{i!=j} cos(phi_i - phi_j)
+    # Efficiently: PPC = (|sum(exp(j*phi))|^2 - n) / (n*(n-1))
+    resultant = np.sum(np.exp(1j * phases))
+    ppc = (np.abs(resultant) ** 2 - n) / (n * (n - 1))
+
+    return ppc
+
+
+def _get_inst_phase(lfp_signal, fs, freq, bandwidth=2.0):
+    """Bandpass-filter the LFP and return instantaneous phase via Hilbert transform."""
+    f_lo = max(freq - bandwidth / 2, 0.5)
+    f_hi = freq + bandwidth / 2
+    nyq = fs / 2.0
+    if f_hi >= nyq:
+        return None
+    b, a = butter(3, [f_lo / nyq, f_hi / nyq], btype='band')
+    filtered = filtfilt(b, a, lfp_signal)
+    analytic = hilbert(filtered)
+    return np.angle(analytic)
+
+
+def compute_ppc_per_neuron(spike_mon, time_window, lfp_signal, time_array, fs, freq,
+                           min_spikes_per_neuron=2, bandwidth=2.0, inst_phase=None):
+    """
+    Compute PPC averaged across single neurons (Vinck et al., 2010).
+
+    For each neuron that has >= min_spikes_per_neuron in the time window,
+    compute its individual PPC from its own spike phases. Then return the
+    average PPC across neurons, weighted by n_i*(n_i-1) (number of spike pairs).
+
+    This avoids inflating PPC by pooling spikes from many neurons whose
+    aggregate train is rhythmic even if individual cells fire sparsely.
+
+    Parameters
+    ----------
+    spike_mon : Brian2 SpikeMonitor
+    time_window : tuple (t_start_ms, t_end_ms)
+    lfp_signal : 1D array, LFP segment matching time_array
+    time_array : 1D array, time points in ms
+    fs : sampling rate in Hz
+    freq : target frequency in Hz
+    min_spikes_per_neuron : minimum spikes per neuron to include
+    bandwidth : bandpass bandwidth in Hz
+    inst_phase : pre-computed instantaneous phase array (optional, for speed)
+
+    Returns
+    -------
+    ppc : float or np.nan
+    """
+    if inst_phase is None:
+        inst_phase = _get_inst_phase(lfp_signal, fs, freq, bandwidth)
+    if inst_phase is None:
+        return np.nan
+
+    t_start, t_end = time_window
+    all_times = np.array(spike_mon.t / ms)
+    all_indices = np.array(spike_mon.i)
+
+    mask = (all_times >= t_start) & (all_times < t_end)
+    times = all_times[mask]
+    neuron_ids = all_indices[mask]
+
+    if len(times) < 2:
+        return np.nan
+
+    # Map spike times to LFP sample indices (once for all neurons)
+    spike_samples = np.searchsorted(time_array, times)
+    valid = (spike_samples >= 0) & (spike_samples < len(inst_phase))
+    spike_samples = spike_samples[valid]
+    neuron_ids = neuron_ids[valid]
+    phases_all = inst_phase[spike_samples]
+
+    # Per-neuron PPC, weighted average
+    unique_neurons = np.unique(neuron_ids)
+    weighted_ppc_sum = 0.0
+    weight_sum = 0
+
+    for nid in unique_neurons:
+        neuron_mask = neuron_ids == nid
+        phases = phases_all[neuron_mask]
+        n = len(phases)
+        if n < min_spikes_per_neuron:
+            continue
+        resultant = np.sum(np.exp(1j * phases))
+        ppc_i = (np.abs(resultant) ** 2 - n) / (n * (n - 1))
+        w = n * (n - 1)
+        weighted_ppc_sum += ppc_i * w
+        weight_sum += w
+
+    if weight_sum == 0:
+        return np.nan
+
+    return weighted_ppc_sum / weight_sum
+
+
+def _find_closest_bipolar_channel(layer_z_range, channel_depths):
+    """Find the bipolar channel index whose depth is closest to the layer center."""
+    layer_center = (layer_z_range[0] + layer_z_range[1]) / 2.0
+    distances = [abs(d - layer_center) for d in channel_depths]
+    return int(np.argmin(distances))
+
+
+def plot_ppc_by_layer(spike_monitors, bipolar_signals, channel_depths, time_array,
+                      layer_configs, freq_range=(1, 100), n_freqs=50, fs=10000,
+                      baseline_time=2000, stimuli_time=1500, min_spikes_per_neuron=5,
+                      bandwidth=4.0, smooth_sigma=1.5):
+    """
+    Plot PPC spectra for each cell type in each layer (one subplot per layer).
+
+    Uses the bipolar LFP channel closest to each layer's center depth.
+    Computes PPC separately for baseline and stimulus periods.
+    """
+    freqs = np.linspace(freq_range[0], freq_range[1], n_freqs)
+    layer_names = list(layer_configs.keys())
+    n_layers = len(layer_names)
+
+    cell_types = ['E', 'PV', 'SOM', 'VIP']
+    colors = {'E': '#1f77b4', 'PV': '#d62728', 'SOM': '#2ca02c', 'VIP': '#ff7f0e'}
+
+    fig, axes = plt.subplots(n_layers, 2, figsize=(14, 3 * n_layers),
+                             sharex=True, sharey=False)
+    if n_layers == 1:
+        axes = axes[np.newaxis, :]
+
+    # Time masks for baseline and stimulus
+    # Skip first 500ms transient from each period
+    base_mask = (time_array >= 500) & (time_array < baseline_time)
+    stim_mask = (time_array >= baseline_time + 500) & (time_array < baseline_time + stimuli_time)
+
+    for row, layer_name in enumerate(layer_names):
+        layer_cfg = layer_configs[layer_name]
+        z_range = layer_cfg['coordinates']['z']
+        ch_idx = _find_closest_bipolar_channel(z_range, channel_depths)
+
+        bipolar_lfp = bipolar_signals[ch_idx]
+
+        # Baseline and stimulus LFP segments
+        lfp_base = bipolar_lfp[base_mask]
+        time_base = time_array[base_mask]
+        lfp_stim = bipolar_lfp[stim_mask]
+        time_stim = time_array[stim_mask]
+
+        layer_spike_mons = spike_monitors[layer_name]
+
+        for cell_type in cell_types:
+            spike_key = f'{cell_type}_spikes'
+            if spike_key not in layer_spike_mons:
+                continue
+
+            spike_mon = layer_spike_mons[spike_key]
+
+            ppc_base = np.full(n_freqs, np.nan)
+            ppc_stim = np.full(n_freqs, np.nan)
+
+            base_window = (time_base[0], time_base[-1])
+            stim_window = (time_stim[0], time_stim[-1])
+
+            for fi, f in enumerate(freqs):
+                phase_base = _get_inst_phase(lfp_base, fs, f, bandwidth)
+                phase_stim = _get_inst_phase(lfp_stim, fs, f, bandwidth)
+
+                ppc_base[fi] = compute_ppc_per_neuron(
+                    spike_mon, base_window, lfp_base, time_base, fs, f,
+                    min_spikes_per_neuron=min_spikes_per_neuron,
+                    bandwidth=bandwidth, inst_phase=phase_base)
+                ppc_stim[fi] = compute_ppc_per_neuron(
+                    spike_mon, stim_window, lfp_stim, time_stim, fs, f,
+                    min_spikes_per_neuron=min_spikes_per_neuron,
+                    bandwidth=bandwidth, inst_phase=phase_stim)
+
+            # Smooth PPC spectra to reduce noise
+            if smooth_sigma > 0:
+                valid_b = ~np.isnan(ppc_base)
+                valid_s = ~np.isnan(ppc_stim)
+                if np.sum(valid_b) > 3:
+                    ppc_base[valid_b] = gaussian_filter1d(ppc_base[valid_b], smooth_sigma)
+                if np.sum(valid_s) > 3:
+                    ppc_stim[valid_s] = gaussian_filter1d(ppc_stim[valid_s], smooth_sigma)
+
+            # Plot baseline (left column)
+            axes[row, 0].plot(freqs, ppc_base, color=colors[cell_type],
+                              label=cell_type, linewidth=1.5, alpha=0.85)
+            # Plot stimulus (right column)
+            axes[row, 1].plot(freqs, ppc_stim, color=colors[cell_type],
+                              label=cell_type, linewidth=1.5, alpha=0.85)
+
+        ch_label = f'bip ch{ch_idx} (z={channel_depths[ch_idx]:.2f}mm)'
+        axes[row, 0].set_title(f'{layer_name} — Baseline — {ch_label}', fontsize=10)
+        axes[row, 1].set_title(f'{layer_name} — Stimulus — {ch_label}', fontsize=10)
+
+        for col in range(2):
+            axes[row, col].set_ylabel('PPC', fontsize=9)
+            axes[row, col].grid(True, alpha=0.3)
+            axes[row, col].legend(fontsize=8, loc='upper right')
+            axes[row, col].set_ylim(bottom=-0.01)
+
+    axes[-1, 0].set_xlabel('Frequency (Hz)', fontsize=11)
+    axes[-1, 1].set_xlabel('Frequency (Hz)', fontsize=11)
+    fig.suptitle('Pairwise Phase Consistency (Vinck et al. 2010)',
+                 fontsize=14, fontweight='bold', y=0.98)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
 
     return fig
 

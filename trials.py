@@ -1,4 +1,5 @@
 import os
+import shutil
 import numpy as np
 import brian2 as b2
 from brian2 import *
@@ -6,14 +7,39 @@ from config.config2 import CONFIG
 from src.column import CorticalColumn
 from src.visualization import *
 from src.analysis import *
-from lgn_to_brian2_v2 import make_lgn_inputs_split
+
+
+CONFIG_FILES = [
+    "config/config2.py",
+    "config/conductances_AMPA2_alpha_v2.csv",
+    "config/conductances_NMDA2_alpha_v2.csv",
+    "config/connection_probabilities2.csv",
+    "main.py",
+    "trials.py",
+]
+
+
+def save_config_snapshot(save_dir, base_dir=None):
+    """Copy config, main.py, and trials.py into save_dir/config_snapshot/ for reproducibility."""
+    if base_dir is None:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    snapshot_dir = os.path.join(save_dir, "config_snapshot")
+    os.makedirs(snapshot_dir, exist_ok=True)
+    for rel_path in CONFIG_FILES:
+        src = os.path.join(base_dir, rel_path)
+        if os.path.exists(src):
+            dst = os.path.join(snapshot_dir, rel_path)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+    print(f"Config snapshot saved to {snapshot_dir}")
+
 
 def run_single_trial(
     config,
     trial_id=0,
     base_seed=None,
-    gray_screen_ms=2000,
-    grating_ms=2000,
+    baseline_ms=3000,
+    stimuli_ms=3000,
     fs=10000,
     verbose=True,
 ):
@@ -22,13 +48,12 @@ def run_single_trial(
 
     trial_seed = int(base_seed + trial_id)
     np.random.seed(trial_seed)
-    # trial_seed = base_seed
     b2.seed(trial_seed)
 
     b2.start_scope()
     b2.defaultclock.dt = config['simulation']['DT']
 
-    total_time = gray_screen_ms + grating_ms
+    total_time = baseline_ms + stimuli_ms
 
     if verbose:
         print(f"\n=== Running trial {trial_id} with seed {trial_seed} ===")
@@ -36,26 +61,56 @@ def run_single_trial(
 
     column = CorticalColumn(column_id=0, config=config)
 
-    # add heterogeneity (this can be commented out)
-    # for layer_name, layer in column.layers.items():
-    #     add_heterogeneity_to_layer(layer, config)
-
     all_monitors = column.get_all_monitors()
 
-    lgn = make_lgn_inputs_split(
-        column, CONFIG,
-        npz_path='lgn_spikes_12_03.npz',
-        total_lgn_duration_ms=total_time,
-        layers_to_connect=['L4C', 'L6'],
-        gray_drive_scale=0.6,
-        grating_drive_scale=1.2,
-        gray_duration_ms=gray_screen_ms,
-    )
+    w_ext_AMPA = config['synapses']['Q']['EXT_AMPA']
 
-    for obj_list in lgn.values():
-        column.network.add(*obj_list)
+    # --- Run baseline ---
+    column.network.run(baseline_ms * ms)
 
-    column.network.run(total_time * ms)
+    # --- Add stimulus (same as main.py) ---
+    L4C = column.layers['L4C']
+
+    L4C_E_grp = L4C.neuron_groups['E']
+    N_stim_E = 40
+    stim_rate_E = 20*Hz
+    L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA',
+                                  N=N_stim_E,
+                                  rate=stim_rate_E,
+                                  weight=w_ext_AMPA*2)
+
+    L4C_PV_grp = L4C.neuron_groups['PV']
+    N_stim_PV = 30
+    stim_rate_PV = 20*Hz
+    L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA',
+                               N=N_stim_PV,
+                               rate=stim_rate_PV,
+                               weight=w_ext_AMPA*2)
+
+    L6 = column.layers['L6']
+    cfg_L6 = config['layers']['L6']
+    L6_PV_grp = L6.neuron_groups['PV']
+    N_stim_L6_PV = int(cfg_L6['poisson_inputs']['PV']['N'])
+    stim_rate_L6_PV = 10*Hz
+
+    L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
+                             N=N_stim_L6_PV,
+                             rate=stim_rate_L6_PV,
+                             weight=w_ext_AMPA*2)
+    L6_E_grp = L6.neuron_groups['E']
+    N_stim_L6_E = int(cfg_L6['poisson_inputs']['E']['N'])
+    stim_rate_L6_E = 10*Hz
+
+    L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
+                             N=N_stim_L6_E,
+                             rate=stim_rate_L6_E,
+                             weight=w_ext_AMPA*2)
+
+    column.network.add(L6_E_stim, L6_PV_stim)
+    column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
+
+    # --- Run stimulus ---
+    column.network.run(stimuli_ms * ms)
 
     if verbose:
         print("Simulation complete")
@@ -150,9 +205,9 @@ def run_single_trial(
         "channel_depths": np.array(channel_depths),
         "rate_data": rate_data,
         "spike_data": spike_data,
-        "baseline_ms": gray_screen_ms,
-        "post_ms": grating_ms,
-        "stim_onset_ms": gray_screen_ms,
+        "baseline_ms": baseline_ms,
+        "post_ms": stimuli_ms,
+        "stim_onset_ms": baseline_ms,
     }
 
     n_elec = len(lfp_signals)
@@ -171,8 +226,8 @@ def run_multiple_trials(
     config,
     n_trials=10,
     base_seed=None,
-    gray_screen_ms=2000,
-    grating_ms=2000,
+    baseline_ms=3000,
+    stimuli_ms=3000,
     fs=10000,
     save_dir="results/trials",
     verbose=True,
@@ -181,14 +236,15 @@ def run_multiple_trials(
         base_seed = config['simulation']['RANDOM_SEED']
 
     os.makedirs(save_dir, exist_ok=True)
+    save_config_snapshot(save_dir)
 
     for trial_id in range(n_trials):
         data = run_single_trial(
             config=config,
             trial_id=trial_id,
             base_seed=base_seed,
-            gray_screen_ms=gray_screen_ms,
-            grating_ms=grating_ms,
+            baseline_ms=baseline_ms,
+            stimuli_ms=stimuli_ms,
             fs=fs,
             verbose=verbose,
         )
@@ -222,9 +278,9 @@ if __name__ == "__main__":
     run_multiple_trials(
         CONFIG,
         n_trials=50,
-        gray_screen_ms=2000,
-        grating_ms=2000,
+        baseline_ms=3000,
+        stimuli_ms=3000,
         fs=10000,
-        save_dir="results/13_03_LGN_gratings",
+        save_dir="results/trials_15_03",
         verbose=True,
     )
