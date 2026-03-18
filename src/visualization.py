@@ -122,7 +122,7 @@ def plot_lfp_power_comparison(state_monitors, layer_configs, baseline_time=1000,
             lfp_post = lfp_full[post_start_idx:post_end_idx]
             
             fs = 1000.0 / dt  
-            nperseg = min(1024, len(lfp_pre) // 4)
+            nperseg = 100*min(1024, len(lfp_pre) // 4)
             
             freq_pre, psd_pre = scipy_signal.welch(
                 lfp_pre, fs=fs, nperseg=nperseg, window='hann'
@@ -560,3 +560,72 @@ def plot_bipolar_power_spectra(bipolar_signals, channel_labels, channel_depths, 
     return fig
 
 
+def plot_lfp_power_comparison_mazzoni_perlayer(lfp_signals, time_array,
+                                                baseline_time=1000,
+                                                pre_stim_duration=1000,
+                                                post_stim_duration=1000,
+                                                transient_skip=500,
+                                                fs=10000, fmax=100,
+                                                figsize=(12, 10)):
+    """
+    Plot per-layer LFP power spectra (Mazzoni RWS method) comparing
+    pre- vs post-stimulus periods.
+
+    Parameters
+    ----------
+    lfp_signals : dict {layer_name: 1D np.ndarray}
+        Output of calculate_lfp_mazzoni_perlayer().
+    time_array : np.ndarray
+        Time vector in ms.
+    """
+    layer_names = list(lfp_signals.keys())
+    n_layers = len(layer_names)
+
+    fig, axes = plt.subplots(n_layers, 1, figsize=figsize, sharex=True)
+    if n_layers == 1:
+        axes = [axes]
+
+    dt = time_array[1] - time_array[0]
+
+    pre_start_idx = int((baseline_time - pre_stim_duration) / dt)
+    pre_end_idx = int(baseline_time / dt)
+    post_start_idx = int((baseline_time + transient_skip) / dt)
+    post_end_idx = int((baseline_time + transient_skip + post_stim_duration) / dt)
+
+    for i, layer_name in enumerate(layer_names):
+        lfp = lfp_signals[layer_name]
+        ax = axes[i]
+
+        lfp_pre = lfp[pre_start_idx:pre_end_idx]
+        lfp_post = lfp[post_start_idx:post_end_idx]
+
+        nperseg = 100*min(1024, len(lfp_pre) // 4)
+        freq_pre, psd_pre = scipy_signal.welch(lfp_pre, fs=fs, nperseg=nperseg, window='hann')
+        freq_post, psd_post = scipy_signal.welch(lfp_post, fs=fs, nperseg=nperseg, window='hann')
+
+        freq_mask = freq_pre <= fmax
+
+        ax.plot(freq_pre[freq_mask], psd_pre[freq_mask], 'b-', linewidth=1.5,
+                label='Pre-stim', alpha=0.9)
+        ax.plot(freq_post[freq_mask], psd_post[freq_mask], 'r--', linewidth=1.5,
+                label='Post-stim', alpha=0.9)
+
+        peak_idx_pre = np.argmax(psd_pre[freq_mask])
+        peak_idx_post = np.argmax(psd_post[freq_mask])
+
+        ax.axvline(freq_pre[freq_mask][peak_idx_pre], color='b', linestyle=':', alpha=0.5,
+                   label=f'Pre peak: {freq_pre[freq_mask][peak_idx_pre]:.1f} Hz')
+        ax.axvline(freq_post[freq_mask][peak_idx_post], color='r', linestyle=':', alpha=0.5,
+                   label=f'Post peak: {freq_post[freq_mask][peak_idx_post]:.1f} Hz')
+
+        ax.set_ylabel(f'{layer_name}', fontsize=11)
+        ax.set_yscale('log')
+        ax.grid(True, alpha=0.3)
+        ax.legend(fontsize=8, loc='upper right')
+
+    axes[-1].set_xlabel('Frequency (Hz)', fontsize=12)
+    axes[0].set_title('Per-Layer LFP Power Spectrum: Pre vs Post Stimulation (Mazzoni RWS)',
+                      fontsize=12, fontweight='bold')
+
+    plt.tight_layout()
+    return fig

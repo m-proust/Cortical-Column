@@ -2,7 +2,7 @@ import numpy as np
 import brian2 as b2
 from brian2 import *
 from brian2tools import *
-from config.config import CONFIG
+from config.config2 import CONFIG
 from src.column import CorticalColumn
 import cleo
 from cleo import ephys
@@ -33,33 +33,62 @@ def _existing_syn(layer, pre, post):
 
 def main():
 
-    c = {
-        "light": "#df87e1",
-        "main": "#C500CC",
-        "dark": "#8000B4",
-        "exc": "#d6755e",
-        "inh": "#056eee",
-        "accent": "#36827F",
+    # Colors per cell type (consistent across layers)
+    cell_colors = {
+        'E':   '#2ca02c',  # green
+        'PV':  '#d62728',  # red
+        'SOM': '#1f77b4',  # blue
+        'VIP': '#e377c2',  # dark pink
     }
-    
+
     np.random.seed(CONFIG['simulation']['RANDOM_SEED'])
     b2.start_scope()
     b2.defaultclock.dt = CONFIG['simulation']['DT']
 
     print(" Creating cortical column...")
     column = CorticalColumn(column_id=0, config=CONFIG)
-    
-    # for layer_name, layer in column.layers.items():
-    #     add_heterogeneity_to_layer(layer, CONFIG)
-    
+
     all_monitors = column.get_all_monitors()
-    fig, ax = cleo.viz.plot(column.layers['L1'].neuron_groups['E'], column.layers['L1'].neuron_groups['PV'], column.layers['L1'].neuron_groups['SOM'], column.layers['L1'].neuron_groups['VIP'], 
-                  column.layers['L23'].neuron_groups['E'], column.layers['L23'].neuron_groups['PV'], column.layers['L23'].neuron_groups['SOM'], column.layers['L23'].neuron_groups['VIP'],
-                  column.layers['L4C'].neuron_groups['E'], column.layers['L4C'].neuron_groups['PV'], column.layers['L4C'].neuron_groups['SOM'], column.layers['L4C'].neuron_groups['VIP'],
-                  column.layers['L4AB'].neuron_groups['E'], column.layers['L4AB'].neuron_groups['PV'], column.layers['L4AB'].neuron_groups['SOM'], column.layers['L4AB'].neuron_groups['VIP'],
-                  column.layers['L5'].neuron_groups['E'], column.layers['L5'].neuron_groups['PV'], column.layers['L5'].neuron_groups['SOM'], column.layers['L5'].neuron_groups['VIP'],
-                  column.layers['L6'].neuron_groups['E'], column.layers['L6'].neuron_groups['PV'], column.layers['L6'].neuron_groups['SOM'], column.layers['L6'].neuron_groups['VIP'],devices=[column.electrode], scatterargs={"alpha": 0.6}, figsize=(10, 10), dpi=600, invert_z=False  )
-    
+
+    # Collect all neuron groups and their colors
+    layer_names = ['L23', 'L4AB', 'L4C', 'L5', 'L6']
+    cell_types = ['E', 'PV', 'SOM', 'VIP']
+
+    groups = []
+    colors = []
+    for ln in layer_names:
+        for ct in cell_types:
+            groups.append(column.layers[ln].neuron_groups[ct])
+            colors.append(cell_colors[ct])
+
+    fig, ax = cleo.viz.plot(
+        *groups,
+        devices=[column.electrode],
+        scatterargs={"alpha": 0.6},
+        colors=colors,
+        figsize=(10, 10),
+        dpi=600,
+        invert_z=False,
+    )
+
+    # Fix overlapping tick numbers: reduce font size and thin out ticks
+    ax.tick_params(axis='x', labelsize=6, pad=1)
+    ax.tick_params(axis='y', labelsize=6, pad=1)
+    ax.tick_params(axis='z', labelsize=6, pad=15)
+
+    # Remove axis labels (will be added by hand)
+    ax.set_xlabel('')
+    ax.set_ylabel('')
+    ax.set_zlabel('')
+
+    # Add legend for cell types
+    from matplotlib.lines import Line2D
+    legend_handles = [
+        Line2D([0], [0], marker='o', color='w', markerfacecolor=cell_colors[ct],
+               markersize=8, label=ct) for ct in cell_types
+    ]
+    ax.legend(handles=legend_handles, loc='upper right', fontsize=9)
+
     fig.savefig("cleo_plot.png", dpi=600, bbox_inches="tight")
 
     # sim = cleo.CLSimulator(column.network)
@@ -225,7 +254,7 @@ def main():
     # fig_lfp_layers_bip  = results['fig_lfp_layers_bip']
 
     
-    plt.show()
+    # plt.show()
 
 
 if __name__ == "__main__":
