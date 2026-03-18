@@ -8,11 +8,11 @@ from matplotlib.gridspec import GridSpec
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("Paired")
 
-base_path = "results/trials_17_03"
+base_path = "results/trials_18_03"
 
 
 
-n_trials = 50
+n_trials = 32
 all_trials = []
 
 for trial_idx in range(n_trials):

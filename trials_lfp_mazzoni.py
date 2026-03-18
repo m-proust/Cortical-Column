@@ -71,6 +71,8 @@ def run_single_trial(
     # --- Run baseline ---
     column.network.run(baseline_ms * ms)
 
+   
+
     L4C = column.layers['L4C']
     cfg_L4C = CONFIG['layers']['L4C']
    
@@ -96,7 +98,7 @@ def run_single_trial(
     L6 = column.layers['L6']
     cfg_L6 = CONFIG['layers']['L6']
     L6_PV_grp = L6.neuron_groups['PV']
-    N_stim_L6_PV = int(cfg_L6['poisson_inputs']['PV']['N'])
+    N_stim_L6_PV = 30
     stim_rate_L6_PV = 15*Hz  
     
     L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
@@ -300,6 +302,6 @@ if __name__ == "__main__":
         baseline_ms=2000,
         stimuli_ms=2000,
         fs=10000,
-        save_dir="results/trials_17_03",
+        save_dir="results/trials_18_03",
         verbose=True,
     )

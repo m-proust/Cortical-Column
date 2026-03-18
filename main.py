@@ -6,6 +6,7 @@ from config.config2 import CONFIG
 from src.column import CorticalColumn
 from src.visualization import *
 from src.analysis import *
+from lfp_mazzoni_perlayer import calculate_lfp_mazzoni_perlayer
 
 
 def main():
@@ -126,21 +127,19 @@ def main():
         # fs=10000,
         sim_duration_ms=baseline_time + stimuli_time
     )
-    # from lfp_mazzoni_method import calculate_lfp_mazzoni
 
-    # # Compute LFP
-    # lfp_signals, time_array = calculate_lfp_mazzoni(
-    #     spike_monitors,
-    #     neuron_groups,
-    #     CONFIG['layers'],
-    #     electrode_positions,
-    #     fs=10000,
-    #     sim_duration_ms=baseline_time + stimuli_time
-    # )
     print("Computing bipolar LFP...")
     bipolar_signals, channel_labels, channel_depths = compute_bipolar_lfp(
         lfp_signals,
         electrode_positions
+    )
+
+    print("Computing LFP using Mazzoni per-layer method...")
+    mazzoni_lfp, mazzoni_time = calculate_lfp_mazzoni_perlayer(
+        state_monitors,
+        CONFIG['layers'],
+        fs=10000,
+        dt_ms=1.0,
     )
 
     fig_raster = plot_raster(spike_monitors, baseline_time, stimuli_time, CONFIG['layers'])
@@ -166,6 +165,16 @@ def main():
                         transient_skip=500
                     )
 
+
+    fig_power_mazzoni = plot_lfp_power_comparison_mazzoni_perlayer(
+                            mazzoni_lfp,
+                            mazzoni_time,
+                            baseline_time=baseline_time,
+                            pre_stim_duration=1000,
+                            post_stim_duration=1000,
+                            transient_skip=500,
+                            fs=10000,
+                        )
 
     fig_rate = plot_rate(rate_monitors, CONFIG['layers'], baseline_time, stimuli_time,
                  smooth_window=15*ms, 
