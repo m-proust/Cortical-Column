@@ -1,34 +1,69 @@
-from tools.utils import *
-from brian2 import *
-import numpy as np
-import pandas as pd
-from collections import defaultdict
-      
+from tools.utils import *                           #                                   >                                 
+from brian2 import *                                #                                   8  k                              
+import numpy as np                                  #                                  .i>?.                              
+import pandas as pd                                 #                   .'            .nk                                 
+from collections import defaultdict                 #             r~.    :           .l[                                  
+                                                    #              .JI;. ;          ^II                                   
+EXT_NMDA_WEIGHT = 0.45*nS                           #                `iI_;|          ;I                                   
+EXT_AMPA_WEIGHT = 1.25*nS                           #                  'I;!          zIlq..`h!p.      i.                  
+tau_e_AMPA = 3*ms                                   #    .k  i.         .YIU         l;I;la..foc:     \    .b|k           
+tau_e_NMDA = 100*ms                                 #     .#` M.    tZ}?]I;Ik.        ;;!.          :.{.  kIpo'           
+tau_i_PV   =  6*ms                                  #      .YIIh.         `f:a.     '*;Iw           #;!!Il0'              
+tau_i_SOM  = 20*ms                                  # .       1>}.          Z;;Z:.`d;;;;_       ..;x;lC`                  
+tau_i_VIP  = 8*ms                                   #  o\.     `|h'        (I;;;;;I;;;;;;Iw' 'hI;;_+'    OcZ              
+v_reset = -65.*mV                                   #  .\,L     .(lM'   'O;;;;;;;;;;;;;;;;;;;;;lq'   .dm; "f{             
+vt      = -50.*mV                                   # .  n;IX:^ .pI;;;;I;;;;;;;I;w][[]]{;;;;;;;x    uI"        .^:o/|l    
+ee      = 0.*mV                                     #     p;;u*c}C;;;;;;;;;;;;;I?[]]]]]]n;;;;;;II;:I;;Ih-.  `h!I;\|llv^   
+ei      = -80.*mV                                   #    .&     .mII;lll;;;;;;;/[]]]]]][[I;;;;;;/   ,~;I\*w#Y;i.          
+                                                    #           nl;;Z   .)I;;;;l?]]]]]]]c;;;;;;u      .;IO'   .]p..       
+t_ref = {                                           #    ')    !IJ/[.    .l;;;;;x]]]][[QI;;;;;;         w;I.   .M{;io.    
+    'E':   5*ms,                                    #      .&lI;1 p.      );;;;;;IlII;I;;;;;;:.          Z''       O*     
+    'PV':  1*ms,                                    #         .Xn        ';;;;;;;;;;;;;;;;;It                       "-    
+    'SOM': 5*ms,                                    #         .ho       mI;I{qI;;;;;;;;;;;;J ."bh.                    
+    'VIP': 5*ms,                                    #         ..      .I;Io   .;;;;;;;;I:+}i;;lo,"Umzf                   
+}                                                   #    ....       .m;;;.     {;;;;lz.      bU?qC"  .v'                  
+                                                    #    ..XIIl;;:Il*lI;      q{mlI;I                                     
+def g_NMDA(v_mV):                                   #      .~I'  oL. .II     <;:::;i.                               
+    return 1.0 / (1.0 + 0.28*np.exp(-0.062*v_mV))   #      .k    "  .a;I|`  ,:!::::;.                                     
+                                                    #              C:Ic ^/  M:::::lm                                      
+                                                    #               'u      lI:::::.                                      
+                                                    #               [       :l:::;:.                                      
+                                                    #                       *n}I;Ii                                       
+                                                    #                       ::::,Id                                       
+                                                    #                      .I:::::;.                                      
+                                                    #                       :;::::;w                                      
+                                                    #                      .M;:::::".                                     
+                                                    #                        l;::::!m                                     
+                                                    #                       'L::::;;Z                                     
+                                                    #                         Q>I>l,:p                                    
+                                                    #                         ';:::::i|                                   
+                                                    #                          ^i::::,l^                                  
+                                                    #                           nI::::,l.                                 
+                                                    #                            h!;:::"+.                                
+                                                    #                              k-!;-0{'                               
+                                                    #                              mI::::::^                              
+                                                    #                               MI::::::.                             
+                                                    #                                q!::::;<'                            
+                                                    #                                 il::::lh                            
+                                                    #                                 ',;::>h'                            
+                                                    #                                   d:;::I,'                          
+                                                    #                                   .!::::,,C                         
+                                                    #                                    `;:::::lc                        
+                                                    #                                     nI:::::,I.                      
+                                                    #                                      *;;;|0l;Iw.                    
+                                                    #                                       *I;;;;;;;;;/'.                
+                                                    #                                       *I;I;;;;IYh,;I..              
+                                                    #                                      .I;k' I;;I  .'+;lh'     .|1    
+                                                    #                                     .l;;j  d;;l}    -;;;II;cv<kj"   
+                                                    #                                  ' Cw b;o  aII;?    .i;:Y;_         
+                                                    #                                 ^I;-  (;' .-I.<I`    ]I> .:_h.      
+                                                    #                                .LI;  .;l  ';1 .Lt     MI.   ..ovO(. 
+                                                    #                                     ";Z   a:   'l(     Ul '     u:( 
+                                                    #                                    YlIC  x;;`   I;Q    ";:p         
+                                                    #                                      .    '`     .                  
+                                                                                                                        
 
-EXT_AMPA_WEIGHT = 1.25*nS
-EXT_NMDA_WEIGHT = 0.45*nS 
 
-tau_e_AMPA = 3*ms
-tau_e_NMDA = 100*ms
-tau_i_PV   =  6*ms  
-tau_i_SOM  = 20*ms
-tau_i_VIP  = 8*ms
-
-v_reset = -65.*mV
-vt      = -50.*mV
-ee      = 0.*mV
-ei      = -80.*mV
-t_ref = {
-    'E':   5*ms,
-    'PV':  1*ms,
-    'SOM': 5*ms,
-    'VIP': 5*ms,
-}
-
-
-
-def g_NMDA(v_mV):
-    return 1.0 / (1.0 + 0.28 * np.exp(-0.062 * v_mV))
 
 csv_layer_configs, _INTER_LAYER_CONNECTIONS, _INTER_LAYER_CONDUCTANCES = load_connectivity_from_csv(
     'config/connection_probabilities2.csv',
