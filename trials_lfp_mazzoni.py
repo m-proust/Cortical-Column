@@ -256,7 +256,7 @@ def run_multiple_trials(
     os.makedirs(save_dir, exist_ok=True)
     save_config_snapshot(save_dir)
 
-    for trial_id in range(n_trials):
+    for trial_id in range(34,n_trials):
         data = run_single_trial(
             config=config,
             trial_id=trial_id,
@@ -295,13 +295,13 @@ def run_multiple_trials(
         if verbose:
             print(f"Saved trial {trial_id} to {fname}")
 
-if __name__ == "__main__":
-    run_multiple_trials(
-        CONFIG,
-        n_trials=50,
-        baseline_ms=2000,
-        stimuli_ms=2000,
-        fs=10000,
-        save_dir="results/trials_18_03",
-        verbose=True,
-    )
+# if __name__ == "__main__":
+#     run_multiple_trials(
+#         CONFIG,
+#         n_trials=100,
+#         baseline_ms=2000,
+#         stimuli_ms=2000,
+#         fs=10000,
+#         save_dir="results/trials_19_03",
+#         verbose=True,
+#     )

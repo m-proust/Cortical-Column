@@ -274,13 +274,13 @@ def run_multiple_trials(
         if verbose:
             print(f"Saved trial {trial_id} to {fname}")
 
-if __name__ == "__main__":
-    run_multiple_trials(
-        CONFIG,
-        n_trials=50,
-        baseline_ms=3000,
-        stimuli_ms=3000,
-        fs=10000,
-        save_dir="results/trials_15_03",
-        verbose=True,
-    )
+# if __name__ == "__main__":
+#     run_multiple_trials(
+#         CONFIG,
+#         n_trials=50,
+#         baseline_ms=3000,
+#         stimuli_ms=3000,
+#         fs=10000,
+#         save_dir="results/trials_15_03",
+#         verbose=True,
+#     )

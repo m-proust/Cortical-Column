@@ -8,11 +8,11 @@ from matplotlib.gridspec import GridSpec
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("Paired")
 
-base_path = "results/trials_18_03"
+base_path = "results/trials_19_03"
 
 
 
-n_trials = 32
+n_trials = 80
 all_trials = []
 
 for trial_idx in range(n_trials):
@@ -423,7 +423,7 @@ f_plot, depths, psd_pre, psd_post, psd_change = plot_laminar_spectral_profile(
     all_trials,
     pre_window_ms=300,
     post_window_ms=300,
-    post_start_ms=1000,
+    post_start_ms=300,
     freq_range=(1, 120),
     log_freq=False,
     remove_mean=True,
@@ -436,7 +436,7 @@ if 'mazzoni_lfp_matrix' in all_trials[0]:
         all_trials,
         pre_window_ms=300,
         post_window_ms=300,
-        post_start_ms=1000,
+        post_start_ms=200,
         freq_range=(1, 120),
         log_freq=False,
         remove_mean=True,
