@@ -85,8 +85,8 @@ _LAYER_CONFIGS = {
         # },
         'poisson_inputs': {
             'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 75},
-            # 'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 30},
-            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 13},
+            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
+            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
             # 'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
             # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
             # 'SOM_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 10},
@@ -107,7 +107,7 @@ _LAYER_CONFIGS = {
         'conductance': csv_layer_configs['L4AB']['conductance'],
         'poisson_inputs': {
             'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 85},
-            # 'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 22},
+            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
             'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 15},
             # 'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
             # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
@@ -129,7 +129,7 @@ _LAYER_CONFIGS = {
         'conductance': csv_layer_configs['L4C']['conductance'],
         'poisson_inputs': {
             'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 85},
-            # 'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 35},
+            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 15},
             'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
             # 'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 15},
             # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
@@ -151,8 +151,8 @@ _LAYER_CONFIGS = {
         'conductance': csv_layer_configs['L5']['conductance'],
         'poisson_inputs': {
           'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 85},
-            # 'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 22},
-            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
+            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 15},
+            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
             # 'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 5},
             # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 25},
             # # 'PV_NMDA':  {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 10},
@@ -173,8 +173,8 @@ _LAYER_CONFIGS = {
         'connection_prob': csv_layer_configs['L6']['connection_prob'],
         'conductance': csv_layer_configs['L6']['conductance'],
         'poisson_inputs': {
-            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 80},
-            # 'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 30},
+            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 85},
+            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 15},
              'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
             # 'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
             # 'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},

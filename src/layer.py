@@ -188,9 +188,9 @@ class CorticalLayer:
                 )
                 syn.connect(p=float(p))
                 # optional delays
-                # syn.delay = (f'{delay_mean/ms}*ms + '
-                #             f'clip(randn()*{delay_std/ms}, '
-                #             f'-{delay_std/ms}*0.5, {delay_std/ms}*2)*ms')
+                syn.delay = (f'{delay_mean/ms}*ms + '
+                            f'clip(randn()*{delay_std/ms}, '
+                            f'-{delay_std/ms}*0.5, {delay_std/ms}*2)*ms')
                 
                 self.synapses[connection] = syn
 
