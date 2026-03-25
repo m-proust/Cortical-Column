@@ -108,7 +108,7 @@ _LAYER_CONFIGS = {
             'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 54},
             # 'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 54}, 
             'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 22},
-            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 15},
+            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 23},
             'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
             # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
             # 'SOM_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
