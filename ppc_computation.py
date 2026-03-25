@@ -1,111 +1,143 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
-from scipy.stats import zscore
+from scipy.ndimage import gaussian_filter1d
 import seaborn as sns
-from matplotlib.gridspec import GridSpec
 
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("Paired")
 
-fname="results/10s_with_PV_delay/trial_000.npz"
-data=np.load(fname, allow_pickle=True)
+fname = "results/farzin_trial/trial_000.npz"
+fs = 10000                 
+dt = 1.0 / fs     
+sigma_ms = 1.0  
+sigma_samples = sigma_ms * fs / 1000.0
+transient_ms = 1000      
+freqs_of_interest = np.arange(1, 101) 
+bw = 2.0        
+bp_order = 4       
 
-lfp_matrix=data["lfp_matrix"]
-spike_data=data["spike_data"].item() if data["spike_data"].size == 1 else data["spike_data"]
+layers = ['L1']
+pops = ['E', 'PV', 'SOM']
+pop_colors = {'E': "#1d970d", 'PV': '#d62728', 'SOM': "#3629c8", 'VIP': "#d22dac"}
 
-fs=10000  
+data = np.load(fname, allow_pickle=True)
+spike_data = data["spike_data"].item() if data["spike_data"].size == 1 else data["spike_data"]
+time_array_ms = data["time_array_ms"]
+n_samples = len(time_array_ms)
+t_start_sample = int(transient_ms * fs / 1000)
 
-layers=['L23', 'L4AB', 'L4C', 'L5', 'L6']
-lfp_indices={'L23': 11, 'L4AB': 8, 'L4C': 6, 'L5': 5, 'L6': 3}
-pops=['E', 'PV', 'SOM', 'VIP']
-half_win_ms=75 #hann window
-half_win_samples=int(half_win_ms * fs / 1000)
-win_samples=2 * half_win_samples
-hann_window=signal.windows.hann(win_samples)
-freqs=np.fft.rfftfreq(win_samples, d=1.0 / fs)
 
-ppc_results={}
+
+def make_lfp_proxy(spike_times_ms, n_samples, fs, sigma_samples):
+    spike_train = np.zeros(n_samples)
+    spike_samples = np.round(spike_times_ms * fs / 1000).astype(int)
+    spike_samples = spike_samples[(spike_samples >= 0) & (spike_samples < n_samples)]
+    np.add.at(spike_train, spike_samples, 1.0)
+    lfp_proxy = gaussian_filter1d(spike_train, sigma_samples)
+    return lfp_proxy
+
+
+def bandpass(sig, f_center, bw, fs, order=4):
+    low = max(f_center - bw, 0.5)
+    high = f_center + bw
+    nyq = fs / 2.0
+    if high >= nyq:
+        high = nyq - 1
+    if low >= high:
+        return np.zeros_like(sig)
+    sos = signal.butter(order, [low / nyq, high / nyq], btype='band', output='sos')
+    return signal.sosfiltfilt(sos, sig)
+
+
+def compute_ppc_single_neuron(spike_times_ms, lfp_phase, fs, t_start_sample, min_spikes=5):
+    spike_samples = np.round(spike_times_ms * fs / 1000).astype(int)
+    valid = (spike_samples >= t_start_sample) & (spike_samples < len(lfp_phase))
+    spike_samples = spike_samples[valid]
+    if len(spike_samples) < min_spikes:
+        return np.nan
+    phases = lfp_phase[spike_samples]
+    z = np.exp(1j * phases)
+    n = len(z)
+    vec_sum = np.sum(z)
+    ppc = (np.abs(vec_sum)**2 - n) / (n * (n - 1))
+    return ppc
+
+
+ppc_results = {}
 
 for layer in layers:
+    print(f"processing {layer}...")
+
+    e_spk = spike_data[layer]['E_spikes']
+    lfp_proxy = make_lfp_proxy(e_spk['times_ms'], n_samples, fs, sigma_samples)
+
+    lfp_phases = {}
+    for freq in freqs_of_interest:
+        lfp_bp = bandpass(lfp_proxy, freq, bw, fs, bp_order)
+        analytic = signal.hilbert(lfp_bp)
+        lfp_phases[freq] = np.angle(analytic)
+
     for pop in pops:
-        spike_info=spike_data[layer][pop+'_spikes']
-        times=spike_info["times_ms"]
-        indices=spike_info["spike_indices"]
-        channel_idx=lfp_indices[layer]
+        spk = spike_data[layer][pop + '_spikes']
+        times = spk['times_ms']
+        indices = spk['spike_indices']
+        neurons = np.unique(indices)
 
-        neurons=np.unique(indices)
-
+        neuron_ppcs = []
         for neuron_id in neurons:
-            mask=(indices == neuron_id) & (times > 1000) 
-            neuron_spike_times=times[mask]
-            phases_per_freq=[[] for _ in range(len(freqs))]
+            mask = indices == neuron_id
+            neuron_times = times[mask]
 
-            for t_spike in neuron_spike_times:
-                t_sample=int(t_spike * fs / 1000)
+            ppc_per_freq = np.empty(len(freqs_of_interest))
+            for fi, freq in enumerate(freqs_of_interest):
+                ppc_per_freq[fi] = compute_ppc_single_neuron(
+                    neuron_times, lfp_phases[freq], fs, t_start_sample)
+            if np.any(~np.isnan(ppc_per_freq)):
+                neuron_ppcs.append(ppc_per_freq)
 
-                if t_sample - half_win_samples < 0 or t_sample + half_win_samples > lfp_matrix.shape[1]:
-                    continue
+        ppc_results[(layer, pop)] = neuron_ppcs
+        print(f"  {pop}: {len(neuron_ppcs)} neurons with enough spikes")
 
-                lfp_segment=lfp_matrix[channel_idx, t_sample - half_win_samples: t_sample + half_win_samples]
-
-                lfp_fft=np.fft.rfft(lfp_segment * hann_window)
-
-                phases=np.angle(lfp_fft)
-                for f_idx in range(len(freqs)):
-                    phases_per_freq[f_idx].append(phases[f_idx])
-
-            N=len(phases_per_freq[0])
-            if N < 2:
-                continue
-
-            ppc_neuron=np.zeros(len(freqs))
-
-            for f_idx in range(len(freqs)):
-                theta=np.array(phases_per_freq[f_idx])
-                vec_sum=np.sum(np.exp(1j*theta))
-                ppc_neuron[f_idx]=(np.abs(vec_sum)**2-N)/(N*(N-1))
-
-            if (layer, pop) not in ppc_results:
-                ppc_results[(layer, pop)]=[]
-            ppc_results[(layer, pop)].append(ppc_neuron)
-
+ppc_mean = {}
+ppc_sem = {}
 
 for layer in layers:
     for pop in pops:
-        key=(layer, pop)
-        if key in ppc_results and len(ppc_results[key]) > 0:
-            mean_ppc=np.mean(ppc_results[key], axis=0)
-            print(f"{layer} {pop}: {len(ppc_results[key])} neurons, "
-                  f"peak PPC={np.max(mean_ppc):.4f} at {freqs[np.argmax(mean_ppc)]:.1f} Hz")
+        key = (layer, pop)
+        neuron_list = ppc_results[key]
+        if len(neuron_list) > 0:
+            stack = np.array(neuron_list)  
+            ppc_mean[key] = np.nanmean(stack, axis=0)
+            ppc_sem[key] = np.nanstd(stack, axis=0) / np.sqrt(np.sum(~np.isnan(stack), axis=0))
+            peak_idx = np.nanargmax(ppc_mean[key])
+            print(f"{layer} {pop}: {len(neuron_list)} neurons, "
+                  f"peak PPC = {ppc_mean[key][peak_idx]:.4f} "
+                  f"at {freqs_of_interest[peak_idx]} Hz")
 
-max_freq=100  
-freq_mask=freqs <= max_freq
-pop_colors={'E': "#1d970d", 'PV': '#d62728', 'SOM': "#3629c8", 'VIP': "#d22dac"}
 
-fig, axes=plt.subplots(len(layers), 1, figsize=(8, 3 * len(layers)), sharex=True)
+fig, axes = plt.subplots(len(layers), 1, figsize=(8, 3 * len(layers)), sharex=True)
 
 for ax, layer in zip(axes, layers):
-    has_data=False
+    has_data = False
     for pop in pops:
-        key=(layer, pop)
-        if key in ppc_results and len(ppc_results[key]) > 0:
-            mean_ppc=np.mean(ppc_results[key], axis=0)
-            sem_ppc=np.std(ppc_results[key], axis=0) / np.sqrt(len(ppc_results[key]))
-            ax.plot(freqs[freq_mask], mean_ppc[freq_mask],
-                    label=pop, color=pop_colors[pop], linewidth=1.5)
-            ax.fill_between(freqs[freq_mask],
-                            mean_ppc[freq_mask] - sem_ppc[freq_mask],
-                            mean_ppc[freq_mask] + sem_ppc[freq_mask],
+        key = (layer, pop)
+        if key in ppc_mean:
+            mean = ppc_mean[key]
+            sem = ppc_sem[key]
+            ax.plot(freqs_of_interest, mean,
+                    label=f"{pop} (n={len(ppc_results[key])})",
+                    color=pop_colors[pop], linewidth=1.5)
+            ax.fill_between(freqs_of_interest, mean - sem, mean + sem,
                             color=pop_colors[pop], alpha=0.2)
-            has_data=True
+            has_data = True
     ax.set_ylabel('PPC')
     ax.set_title(layer)
     if has_data:
         ax.legend(loc='upper right', fontsize=8)
 
 axes[-1].set_xlabel('Frequency (Hz)')
-fig.suptitle('Pairwise Phase Consistency by Layer', fontsize=14, y=1.01)
+fig.suptitle('Pairwise Phase Consistency', fontsize=14, y=1.01)
 fig.tight_layout()
-plt.savefig("results/10s_without_stim/ppc_by_layer.png", dpi=200, bbox_inches='tight')
+plt.savefig("results/essai_PPC/ppc_by_layer.png", dpi=200, bbox_inches='tight')
 plt.show()

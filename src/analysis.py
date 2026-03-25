@@ -126,13 +126,18 @@ def add_heterogeneity_to_layer(layer, config):
         n = len(neuron_group)
         base = config['intrinsic_params'][pop_name]
         
-        neuron_group.C = base['C'] * np.abs(1 + np.random.randn(n) * 0.15)
-        neuron_group.gL = base['gL'] * np.abs(1 + np.random.randn(n) * 0.12)
-        neuron_group.tauw = base['tauw'] * np.abs(1 + np.random.randn(n) * 0.15)
-        neuron_group.b = base['b'] * np.abs(1 + np.random.randn(n) * 0.20)
-        neuron_group.a = base['a'] * np.abs(1 + np.random.randn(n) * 0.15)
-
-
+        def vary(base_val, sigma=0.15):
+            factors = np.clip(1 + np.random.randn(n) * sigma, 0.5, 1.5)
+            return base_val * factors
+        
+        neuron_group.C    = vary(base['C'], 0.15)
+        neuron_group.gL   = vary(base['gL'], 0.12)
+        neuron_group.tauw = vary(base['tauw'], 0.15)
+        neuron_group.b    = vary(base['b'], 0.20)
+        neuron_group.a    = vary(base['a'], 0.15)
+        base_EL = base['EL']
+        neuron_group.EL = base_EL + np.random.randn(n) * 2*mV  
+        neuron_group.DeltaT = vary(base['DeltaT'], 0.10)
 
 def calculate_lfp_kernel_method(spike_monitors, neuron_groups, layer_configs,
                                 electrode_positions, dt_ms=0.1, sim_duration_ms=2000):

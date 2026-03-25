@@ -3,17 +3,17 @@ import shutil
 import numpy as np
 import brian2 as b2
 from brian2 import *
-from config.config2 import CONFIG
+from config_farzin.config2 import CONFIG
 from src.column import CorticalColumn
 from src.visualization import *
 from src.analysis import *
 
 
 CONFIG_FILES = [
-    "config/config2.py",
-    "config/conductances_AMPA2_alpha_v2.csv",
-    "config/conductances_NMDA2_alpha_v2.csv",
-    "config/connection_probabilities2.csv",
+    "config_farzin/config2.py",
+    "config_farzin/conductances_AMPA2_alpha_v2.csv",
+    "config_farzin/conductances_NMDA2_alpha_v2.csv",
+    "config_farzin/connection_probabilities2.csv",
     "main.py",
     "trials.py",
 ]
@@ -65,45 +65,45 @@ def run_single_trial(
 
     w_ext_AMPA = config['synapses']['Q']['EXT_AMPA']
 
-    # --- Run baseline ---
+    # # --- Run baseline ---
     column.network.run(baseline_ms * ms)
-    L4C = column.layers['L4C']
-    L4C_E_grp = L4C.neuron_groups['E']
-    L4C_PV_grp = L4C.neuron_groups['PV']
+    # L4C = column.layers['L4C']
+    # L4C_E_grp = L4C.neuron_groups['E']
+    # L4C_PV_grp = L4C.neuron_groups['PV']
 
-    N_lgn_L4C = 300         # large LGN pool, low p → ~1.4% pairwise correlation
-    lgn_L4C = PoissonGroup(N_lgn_L4C, rates=80*Hz)
+    # N_lgn_L4C = 300         # large LGN pool, low p → ~1.4% pairwise correlation
+    # lgn_L4C = PoissonGroup(N_lgn_L4C, rates=80*Hz)
 
-    lgn_L4C_E_syn = Synapses(lgn_L4C, L4C_E_grp,
-                              on_pre='gE_AMPA_post += %f*nS' % (w_ext_AMPA/nS))
-    lgn_L4C_E_syn.connect(p=0.12)   # each E gets ~36 LGN inputs (300*0.12)
-    lgn_L4C_E_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
+    # lgn_L4C_E_syn = Synapses(lgn_L4C, L4C_E_grp,
+    #                           on_pre='gE_AMPA_post += %f*nS' % (w_ext_AMPA/nS))
+    # lgn_L4C_E_syn.connect(p=0.12)   # each E gets ~36 LGN inputs (300*0.12)
+    # lgn_L4C_E_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
 
-    lgn_L4C_PV_syn = Synapses(lgn_L4C, L4C_PV_grp,
-                               on_pre='gE_AMPA_post += %f*nS' % (w_ext_AMPA/nS))
-    lgn_L4C_PV_syn.connect(p=0.10)  # each PV gets ~30 LGN inputs
-    lgn_L4C_PV_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
+    # lgn_L4C_PV_syn = Synapses(lgn_L4C, L4C_PV_grp,
+    #                            on_pre='gE_AMPA_post += %f*nS' % (w_ext_AMPA/nS))
+    # lgn_L4C_PV_syn.connect(p=0.10)  # each PV gets ~30 LGN inputs
+    # lgn_L4C_PV_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
 
-    # L6 thalamic drive
-    L6 = column.layers['L6']
-    L6_E_grp = L6.neuron_groups['E']
-    L6_PV_grp = L6.neuron_groups['PV']
+    # # L6 thalamic drive
+    # L6 = column.layers['L6']
+    # L6_E_grp = L6.neuron_groups['E']
+    # L6_PV_grp = L6.neuron_groups['PV']
 
-    N_lgn_L6 = 200          # weaker thalamic drive to L6 than L4C
-    lgn_L6 = PoissonGroup(N_lgn_L6, rates=15*Hz)
+    # N_lgn_L6 = 200          # weaker thalamic drive to L6 than L4C
+    # lgn_L6 = PoissonGroup(N_lgn_L6, rates=15*Hz)
 
-    lgn_L6_E_syn = Synapses(lgn_L6, L6_E_grp,
-                             on_pre='gE_AMPA_post += %f*nS' % (0.7 * w_ext_AMPA/nS))
-    lgn_L6_E_syn.connect(p=0.08)    # each E gets ~16 LGN inputs, weaker weight
-    lgn_L6_E_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
+    # lgn_L6_E_syn = Synapses(lgn_L6, L6_E_grp,
+    #                          on_pre='gE_AMPA_post += %f*nS' % (0.7 * w_ext_AMPA/nS))
+    # lgn_L6_E_syn.connect(p=0.08)    # each E gets ~16 LGN inputs, weaker weight
+    # lgn_L6_E_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
 
-    lgn_L6_PV_syn = Synapses(lgn_L6, L6_PV_grp,
-                              on_pre='gE_AMPA_post += %f*nS' % (0.7 * w_ext_AMPA/nS))
-    lgn_L6_PV_syn.connect(p=0.08)   # each PV gets ~16 LGN inputs
-    lgn_L6_PV_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
+    # lgn_L6_PV_syn = Synapses(lgn_L6, L6_PV_grp,
+    #                           on_pre='gE_AMPA_post += %f*nS' % (0.7 * w_ext_AMPA/nS))
+    # lgn_L6_PV_syn.connect(p=0.08)   # each PV gets ~16 LGN inputs
+    # lgn_L6_PV_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
 
-    column.network.add(lgn_L4C, lgn_L4C_E_syn, lgn_L4C_PV_syn)
-    column.network.add(lgn_L6, lgn_L6_E_syn, lgn_L6_PV_syn)
+    # column.network.add(lgn_L4C, lgn_L4C_E_syn, lgn_L4C_PV_syn)
+    # column.network.add(lgn_L6, lgn_L6_E_syn, lgn_L6_PV_syn)
 
     column.network.run(stimuli_ms * ms)
 
@@ -175,6 +175,15 @@ def run_single_trial(
                 "spike_indices": np.array(mon.i),
             }
 
+    # E population smooth rate as LFP proxy (1ms Gaussian window)
+    lfp_full = {}
+    for layer_name, layer_rate_mons in rate_monitors.items():
+        e_rate_mon = layer_rate_mons.get('E_rate')
+        if e_rate_mon is not None:
+            lfp_full[layer_name] = np.array(
+                e_rate_mon.smooth_rate(window='gaussian', width=1*ms) / Hz
+            )
+
     rate_data = {}
     for layer_name, layer_rate_mons in rate_monitors.items():
         rate_data[layer_name] = {}
@@ -200,6 +209,7 @@ def run_single_trial(
         "channel_depths": np.array(channel_depths),
         "rate_data": rate_data,
         "spike_data": spike_data,
+        "lfp_full": lfp_full,
         "baseline_ms": baseline_ms,
         "post_ms": stimuli_ms,
         "stim_onset_ms": baseline_ms,
@@ -258,6 +268,7 @@ def run_multiple_trials(
             "channel_depths": data["channel_depths"],
             "rate_data": data["rate_data"],
             "spike_data": data["spike_data"],
+            "lfp_full": data["lfp_full"],
             "baseline_ms": data["baseline_ms"],
             "post_ms": data["post_ms"],
             "stim_onset_ms": data["stim_onset_ms"],
@@ -272,10 +283,10 @@ def run_multiple_trials(
 if __name__ == "__main__":
     run_multiple_trials(
         CONFIG,
-        n_trials=20,
-        baseline_ms=2000,
-        stimuli_ms=2000,
+        n_trials=1,
+        baseline_ms=6000,
+        stimuli_ms=6000,
         fs=10000,
-        save_dir="results/trials_23_03",
+        save_dir="results/farzin_trial",
         verbose=True,
     )

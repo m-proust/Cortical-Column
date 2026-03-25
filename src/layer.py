@@ -128,19 +128,28 @@ class CorticalLayer:
                 set_if_exists(g, 'sigma_drive', sigma)
 
     def _get_delay_params(self, pre_pop, post_pop):
-        excitatory = (pre_pop == 'E')
-        
-        if pre_pop == post_pop: 
-            delay_mean = 0.8*ms
-            delay_std = 0.5*ms
-        elif excitatory: 
-            delay_mean = 0.6*ms
-            delay_std = 0.4*ms
-        else:  
-            delay_mean = 0.5*ms
-            delay_std = 0.3*ms
-            
-        return delay_mean, delay_std
+   
+        delay_table = {
+            ('E', 'E'):     (1.5, 0.5),
+            ('E', 'PV'):    (1.2, 0.4),
+            ('E', 'SOM'):   (1.5, 0.5),
+            ('E', 'VIP'):   (1.5, 0.5),
+            ('PV', 'E'):    (0.9, 0.5),
+            ('PV', 'PV'):   (1.6, 0.4),
+            ('PV', 'SOM'):  (1.2, 0.4),
+            ('PV', 'VIP'):  (1.2, 0.4),
+            ('SOM', 'E'):   (1.5, 0.5),
+            ('SOM', 'PV'):  (1.5, 0.5),
+            ('SOM', 'SOM'): (1.5, 0.5),
+            ('SOM', 'VIP'): (1.5, 0.5),
+            ('VIP', 'E'):   (3.8, 1.0),
+            ('VIP', 'PV'):  (3.8, 1.0),
+            ('VIP', 'SOM'): (3.8, 1.0),
+            ('VIP', 'VIP'): (3.8, 1.0),
+        }
+    
+        mean_ms, std_ms = delay_table.get((pre_pop, post_pop), (1.5, 0.5))
+        return mean_ms * ms, std_ms * ms
 
     def _create_internal_connections(self):
         pmap = self.layer_config.get('connection_prob', {})
@@ -160,15 +169,16 @@ class CorticalLayer:
                 nmda_key = f'{connection}_NMDA'
                 
                 g_ampa = cmap.get(ampa_key, 0.01)
-                g_nmda = cmap.get(nmda_key, 0.005)
-                
+                g_nmda = cmap.get(nmda_key, 0.0)
+
+                on_pre_str = f'gE_AMPA_post += {g_ampa}*nS'
+                if g_nmda > 0:
+                    on_pre_str += f'\ngE_NMDA_post += {g_nmda}*nS'
+
                 syn = Synapses(
                     self.neuron_groups[pre],
                     self.neuron_groups[post],
-                    on_pre=f'''
-                    gE_AMPA_post += {g_ampa}*nS
-                    gE_NMDA_post += {g_nmda}*nS
-                    '''
+                    on_pre=on_pre_str
                 )
                 syn.connect(p=float(p))
                 syn.delay = (f'{delay_mean/ms}*ms + '
@@ -222,9 +232,10 @@ class CorticalLayer:
 
     def _create_monitors(self):
         for pop_name, group in self.neuron_groups.items():
-            vars_to_record = ['v', 'gE', 'gI', 'IsynE', 'IsynE_AMPA', 'IsynE_NMDA',
+            candidate_vars = ['v', 'gE', 'gI', 'IsynE', 'IsynE_AMPA', 'IsynE_NMDA',
                                'IsynI', 'IsynIPV', 'IsynISOM', 'IsynIVIP'] if not self.is_current else ['v', 'sE', 'sI']
-            
+            vars_to_record = [v for v in candidate_vars if v in group.variables]
+
             self.monitors[f'{pop_name}_state'] = StateMonitor(group, vars_to_record, record=True, dt=1*ms)
             self.monitors[f'{pop_name}_spikes'] = SpikeMonitor(group, variables='t')
             self.monitors[f'{pop_name}_rate'] = PopulationRateMonitor(group)

@@ -1,73 +1,112 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import signal
+from scipy.signal import hilbert, butter, sosfiltfilt
 import seaborn as sns
-from brian2 import second
-from ppc_fieldtrip import *
-from config.config2 import CONFIG
 
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("Paired")
 
-# ─────────────────────────────────────────────────────────────────
-# Fake SpikeMonitor so ppc.py can call .spike_trains()
-# ─────────────────────────────────────────────────────────────────
-class FakeSpikeMonitor:
-    """Wraps saved spike data (times_ms, spike_indices) to mimic
-    Brian2 SpikeMonitor.spike_trains() interface."""
-
-    def __init__(self, times_ms, indices):
-        self._times_ms = np.asarray(times_ms)
-        self._indices = np.asarray(indices)
-
-    def spike_trains(self):
-        trains = {}
-        if len(self._indices) == 0:
-            return trains
-        for idx in np.unique(self._indices):
-            mask = self._indices == idx
-            trains[idx] = self._times_ms[mask] / 1000.0 * second
-        return trains
-
-
-# ─────────────────────────────────────────────────────────────────
-# Load trial data
-# ─────────────────────────────────────────────────────────────────
-fname = "results/10s_with_PV_delay_PG/trial_000.npz"
+fname = "results/10s_with_stim/trial_000.npz"
 data = np.load(fname, allow_pickle=True)
+
+bipolar_lfp = data["lfp_matrix"]
 spike_data = data["spike_data"].item() if data["spike_data"].size == 1 else data["spike_data"]
 
-lfp_signals = data["lfp_matrix"]
-time_array = data["time_array_ms"]
-electrode_positions = list(map(tuple, data["electrode_positions"]))
+fs = 10000 
+T_skip = 1.0  
+T_skip_samples = int(T_skip * fs)
 
-# ─────────────────────────────────────────────────────────────────
-# Build spike_monitors dict
-# ─────────────────────────────────────────────────────────────────
-spike_monitors = {}
-for layer_name, layer_mons in spike_data.items():
-    spike_monitors[layer_name] = {}
-    for mon_name, sd in layer_mons.items():
-        spike_monitors[layer_name][mon_name] = FakeSpikeMonitor(
-            sd["times_ms"], sd["spike_indices"]
-        )
+layers = ['L23', 'L4AB', 'L4C', 'L5', 'L6']
+bipolar_lfp_indices = {'L23': 11, 'L4AB': 8, 'L4C': 6, 'L5': 5, 'L6': 3}
+pops = ['E', 'PV', 'SOM']
+freqs = np.arange(5, 105, 5) 
+bandwidth = 5  
 
-# ─────────────────────────────────────────────────────────────────
-# PPC SPECTRUM — FieldTrip mtmconvol + PPC₀
-# ─────────────────────────────────────────────────────────────────
-print("\n" + "=" * 60)
-print("PPC SPECTRUM (FieldTrip-style: mtmconvol + PPC₀)")
-print("=" * 60)
+ppc_results = {}
 
-results = compute_all_ppc(
-    spike_monitors=spike_monitors,
-    lfp_signals=lfp_signals,
-    lfp_time_array=time_array,
-    layer_configs=CONFIG['layers'],
-    electrode_positions=electrode_positions,
-    t_discard=2.0,
-    foi=np.arange(5, 101, 1.0),  # 5–100 Hz in 1 Hz steps
-    n_cycles=5,                    # 5 cycles per frequency (FieldTrip default)
-    min_spikes=20,
-)
+for layer in layers:
+    channel_idx = bipolar_lfp_indices[layer]
+    lfp_signal = bipolar_lfp[channel_idx]
 
-plot_ppc_spectra(results, save_path='ppc_spectrum_fieldtrip.png')
+    inst_phases = np.zeros((len(freqs), len(lfp_signal)))
+    for f_idx, f_center in enumerate(freqs):
+        f_low = max(f_center - bandwidth, 1)
+        f_high = f_center + bandwidth
+        sos = butter(4, [f_low / (fs/2), f_high / (fs/2)], btype='band', output='sos')
+        lfp_filtered = sosfiltfilt(sos, lfp_signal)
+        inst_phases[f_idx] = np.angle(hilbert(lfp_filtered))
+    print(f"  {layer}: LFP phases computed for {len(freqs)} frequencies")
+
+    for pop in pops:
+        spike_info = spike_data[layer][pop + '_spikes']
+        times_ms = spike_info["times_ms"]
+        indices = spike_info["spike_indices"]
+
+        unique_neurons = np.unique(indices)
+
+        for neuron_id in unique_neurons:
+            mask = (indices == neuron_id) & (times_ms > T_skip * 1000)
+            neuron_spike_times_ms = times_ms[mask]
+
+            if len(neuron_spike_times_ms) < 2:
+                continue
+
+            spike_samples = (neuron_spike_times_ms * fs / 1000).astype(int)
+            spike_samples = spike_samples[(spike_samples >= 0) & (spike_samples < len(lfp_signal))]
+
+            if len(spike_samples) < 2:
+                continue
+
+            N = len(spike_samples)
+            ppc_neuron = np.zeros(len(freqs))
+
+            for f_idx in range(len(freqs)):
+                spike_phases = inst_phases[f_idx, spike_samples]
+                vec_sum = np.sum(np.exp(1j * spike_phases))
+                ppc_neuron[f_idx] = (np.abs(vec_sum) ** 2 - N) / (N * (N - 1))
+
+            if (layer, pop) not in ppc_results:
+                ppc_results[(layer, pop)] = []
+            ppc_results[(layer, pop)].append(ppc_neuron)
+
+        print(f"    {pop}: done ({len(ppc_results.get((layer, pop), []))} neurons)")
+
+
+for layer in layers:
+    for pop in pops:
+        key = (layer, pop)
+        if key in ppc_results and len(ppc_results[key]) > 0:
+            mean_ppc = np.mean(ppc_results[key], axis=0)
+            peak_idx = np.argmax(mean_ppc)
+            print(f"{layer} {pop}: {len(ppc_results[key])} neurons, "
+                  f"peak PPC = {mean_ppc[peak_idx]:.4f} at {freqs[peak_idx]} Hz")
+
+pop_colors = {'E': "#1d970d", 'PV': '#d62728', 'SOM': "#3629c8", 'VIP': "#d22dac"}
+
+fig, axes = plt.subplots(len(layers), 1, figsize=(8, 3 * len(layers)), sharex=True)
+
+for ax, layer in zip(axes, layers):
+    has_data = False
+    for pop in pops:
+        key = (layer, pop)
+        if key in ppc_results and len(ppc_results[key]) > 0:
+            ppc_array = np.array(ppc_results[key])
+            mean_ppc = np.mean(ppc_array, axis=0)
+            sem_ppc = np.std(ppc_array, axis=0) / np.sqrt(len(ppc_array))
+            ax.plot(freqs, mean_ppc, label=pop, color=pop_colors[pop], linewidth=1.5)
+            ax.fill_between(freqs,
+                            mean_ppc - sem_ppc,
+                            mean_ppc + sem_ppc,
+                            color=pop_colors[pop], alpha=0.2)
+            has_data = True
+    ax.set_ylabel('PPC')
+    ax.set_title(layer)
+    if has_data:
+        ax.legend(loc='upper right', fontsize=8)
+
+axes[-1].set_xlabel('Frequency (Hz)')
+fig.suptitle('Pairwise Phase Consistency by Layer (Hilbert method)', fontsize=14, y=1.01)
+fig.tight_layout()
+plt.savefig("results/10s_with_stim/ppc_hilbert_by_layer.png", dpi=200, bbox_inches='tight')
+plt.show()

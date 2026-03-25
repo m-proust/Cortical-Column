@@ -1,13 +1,16 @@
 import pandas as pd
 
 
-def load_connectivity_from_csv(conn_prob_file, cond_ampa_file, cond_nmda_file):
+def load_connectivity_from_csv(conn_prob_file, cond_ampa_file, cond_nmda_file,
+                               layers=None, cell_types=None):
 
     conn_prob_df = pd.read_csv(conn_prob_file, index_col=0)
     cond_ampa_df = pd.read_csv(cond_ampa_file, index_col=0)
     cond_nmda_df = pd.read_csv(cond_nmda_file, index_col=0)
-    layers = [ 'L23', 'L4AB', 'L4C', 'L5', 'L6']
-    cell_types = ['E', 'PV', 'SOM', 'VIP']
+    if layers is None:
+        layers = [ 'L23', 'L4AB', 'L4C', 'L5', 'L6']
+    if cell_types is None:
+        cell_types = ['E', 'PV', 'SOM', 'VIP']
     l1_cell_types = ['VIP']
 
     layer_configs = {}
@@ -19,7 +22,7 @@ def load_connectivity_from_csv(conn_prob_file, cond_ampa_file, cond_nmda_file):
         connection_prob = {}
         conductance = {}
 
-        current_cell_types = l1_cell_types if layer == 'L1' else cell_types
+        current_cell_types = cell_types
 
         for src_type in current_cell_types:
             for tgt_type in current_cell_types:
@@ -62,8 +65,8 @@ def load_connectivity_from_csv(conn_prob_file, cond_ampa_file, cond_nmda_file):
             conn_dict = {}
             cond_dict = {}
 
-            src_cell_types = l1_cell_types if src_layer == 'L1' else cell_types
-            tgt_cell_types = l1_cell_types if tgt_layer == 'L1' else cell_types
+            src_cell_types = cell_types
+            tgt_cell_types = cell_types
 
             for src_type in src_cell_types:
                 for tgt_type in tgt_cell_types:

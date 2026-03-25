@@ -5,8 +5,7 @@ import pandas as pd                                 #                   .'      
 from collections import defaultdict                 #             r~.    :           .l[                                  
                                                     #              .JI;. ;          ^II                                   
 EXT_NMDA_WEIGHT = 0.45*nS                           #                `iI_;|          ;I                                   
-EXT_AMPA_WEIGHT = 1.25*nS                           #                  'I;!          zIlq..`h!p.      i.                  
-tau_e_AMPA = 3*ms                                   #    .k  i.         .YIU         l;I;la..foc:     \    .b|k           
+EXT_AMPA_WEIGHT = 1.25*nS                           #                  'I;!          zIlq..`h!p.      i.                                                #    .k  i.         .YIU         l;I;la..foc:     \    .b|k           
 tau_e_NMDA = 100*ms                                 #     .#` M.    tZ}?]I;Ik.        ;;!.          :.{.  kIpo'           
 tau_i_PV   =  6*ms                                  #      .YIIh.         `f:a.     '*;Iw           #;!!Il0'              
 tau_i_SOM  = 20*ms                                  # .       1>}.          Z;;Z:.`d;;;;_       ..;x;lC`                  
@@ -28,10 +27,10 @@ def g_NMDA(v_mV):                                   #      .~I'  oL. .II     <;:
                                                     #              C:Ic ^/  M:::::lm                                      
                                                     #               'u      lI:::::.                                      
                                                     #               [       :l:::;:.                                      
-                                                    #                       *n}I;Ii                                       
-                                                    #                       ::::,Id                                       
-                                                    #                      .I:::::;.                                      
-                                                    #                       :;::::;w                                      
+tau_e_AMPA_E   = 5*ms   # E neurons                 #                       *n}I;Ii                                       
+tau_e_AMPA_PV  = 1*ms   # PV neurons                #                       ::::,Id                                       
+tau_e_AMPA_SOM = 2*ms   # SOM neurons               #                      .I:::::;.                                      
+tau_e_AMPA_VIP = 2*ms   # VIP neurons               #                       :;::::;w                                          
                                                     #                      .M;:::::".                                     
                                                     #                        l;::::!m                                     
                                                     #                       'L::::;;Z                                     
@@ -84,16 +83,16 @@ _LAYER_CONFIGS = {
         #     'E': {'b': 80*pA, 'tauw': 150*ms}, 
         # },
         'poisson_inputs': {
-            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 75},
-            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
-            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
-            # 'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
+            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 54},
+            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 24},         
+            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 23},
+            'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
             # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
             # 'SOM_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 10},
             # 'VIP_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 20},
 
         },
-        'input_rate': 2*Hz,
+        'input_rate': 4*Hz,
         'neuron_counts': {'E': 3520, 'PV': 260, 'SOM': 410, 'VIP': 263},
         'coordinates' : {
             'x': (-0.15,0.15),
@@ -106,10 +105,11 @@ _LAYER_CONFIGS = {
         'connection_prob': csv_layer_configs['L4AB']['connection_prob'],
         'conductance': csv_layer_configs['L4AB']['conductance'],
         'poisson_inputs': {
-            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 85},
-            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
+            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 54},
+            # 'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 54}, 
+            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 22},
             'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 15},
-            # 'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
+            'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
             # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
             # 'SOM_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
             # 'VIP_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
@@ -128,16 +128,17 @@ _LAYER_CONFIGS = {
         'connection_prob': csv_layer_configs['L4C']['connection_prob'],
         'conductance': csv_layer_configs['L4C']['conductance'],
         'poisson_inputs': {
-            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 85},
-            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 15},
-            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
-            # 'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 15},
+            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 54},
+            # 'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 54}, 
+            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 52},
+            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 22},
+            'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
             # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
             # 'SOM_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
             # 'VIP_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 20},
 
         },
-        'input_rate': 6*Hz,
+        'input_rate': 5*Hz,
         'neuron_counts': {'E': 3192, 'PV': 320, 'SOM': 200, 'VIP': 88},
         'coordinates' : {
             'x': (-0.15,0.15),
@@ -150,10 +151,11 @@ _LAYER_CONFIGS = {
         'connection_prob': csv_layer_configs['L5']['connection_prob'],
         'conductance': csv_layer_configs['L5']['conductance'],
         'poisson_inputs': {
-          'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 85},
-            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 15},
-            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
-            # 'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 5},
+          'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 54},
+            # 'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 54} 
+            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 22},
+            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
+            'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 5},
             # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 25},
             # # 'PV_NMDA':  {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 10},
             # 'SOM_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 35},
@@ -173,10 +175,10 @@ _LAYER_CONFIGS = {
         'connection_prob': csv_layer_configs['L6']['connection_prob'],
         'conductance': csv_layer_configs['L6']['conductance'],
         'poisson_inputs': {
-            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 85},
-            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 15},
+            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 54},
+            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 14},    
              'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
-            # 'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
+            'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
             # 'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
             # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 55},
             # 'PV_NMDA':  {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 10},
@@ -226,11 +228,11 @@ CONFIG = {
         gE   = gE_AMPA : siemens
         IsynI = gI*(v - Ei) : amp
 
-        dgE_AMPA/dt = -gE_AMPA/tau_e_AMPA : siemens
-        dgE_NMDA/dt = -gE_NMDA/tau_e_NMDA : siemens
-        dgPV/dt     = -gPV/tau_i_PV       : siemens
-        dgSOM/dt    = -gSOM/tau_i_SOM     : siemens
-        dgVIP/dt    = -gVIP/tau_i_VIP     : siemens
+        dgE_AMPA/dt = -gE_AMPA/tau_e_AMPA_E : siemens
+        dgE_NMDA/dt = -gE_NMDA/tau_e_NMDA   : siemens
+        dgPV/dt     = -gPV/tau_i_PV          : siemens
+        dgSOM/dt    = -gSOM/tau_i_SOM        : siemens
+        dgVIP/dt    = -gVIP/tau_i_VIP        : siemens
 
         dw/dt   = (a*(v - EL) - w)/tauw : amp
         taum    = C/gL : second
@@ -267,11 +269,11 @@ CONFIG = {
         gE   = gE_AMPA : siemens
         IsynI = gI*(v - Ei) : amp
 
-        dgE_AMPA/dt = -gE_AMPA/tau_e_AMPA : siemens
-        dgE_NMDA/dt = -gE_NMDA/tau_e_NMDA : siemens
-        dgPV/dt     = -gPV/tau_i_PV       : siemens
-        dgSOM/dt    = -gSOM/tau_i_SOM     : siemens
-        dgVIP/dt    = -gVIP/tau_i_VIP     : siemens
+        dgE_AMPA/dt = -gE_AMPA/tau_e_AMPA_PV : siemens
+        dgE_NMDA/dt = -gE_NMDA/tau_e_NMDA    : siemens
+        dgPV/dt     = -gPV/tau_i_PV           : siemens
+        dgSOM/dt    = -gSOM/tau_i_SOM         : siemens
+        dgVIP/dt    = -gVIP/tau_i_VIP         : siemens
 
         dw/dt   = (a*(v - EL) - w)/tauw : amp
         taum    = C/gL : second
@@ -308,11 +310,11 @@ CONFIG = {
         gE   = gE_AMPA : siemens
         IsynI = gI*(v - Ei) : amp
 
-        dgE_AMPA/dt = -gE_AMPA/tau_e_AMPA : siemens
-        dgE_NMDA/dt = -gE_NMDA/tau_e_NMDA : siemens
-        dgPV/dt     = -gPV/tau_i_PV       : siemens
-        dgSOM/dt    = -gSOM/tau_i_SOM     : siemens
-        dgVIP/dt    = -gVIP/tau_i_VIP     : siemens
+        dgE_AMPA/dt = -gE_AMPA/tau_e_AMPA_SOM : siemens
+        dgE_NMDA/dt = -gE_NMDA/tau_e_NMDA     : siemens
+        dgPV/dt     = -gPV/tau_i_PV            : siemens
+        dgSOM/dt    = -gSOM/tau_i_SOM          : siemens
+        dgVIP/dt    = -gVIP/tau_i_VIP          : siemens
 
         dw/dt   = (a*(v - EL) - w)/tauw : amp
         taum    = C/gL : second
@@ -349,8 +351,8 @@ CONFIG = {
         gE   = gE_AMPA : siemens
         IsynI = gI*(v - Ei) : amp
 
-        dgE_AMPA/dt = -gE_AMPA/tau_e_AMPA : siemens
-        dgE_NMDA/dt = -gE_NMDA/tau_e_NMDA : siemens
+        dgE_AMPA/dt = -gE_AMPA/tau_e_AMPA_VIP : siemens
+        dgE_NMDA/dt = -gE_NMDA/tau_e_NMDA     : siemens
         dgPV/dt     = -gPV/tau_i_PV       : siemens
         dgSOM/dt    = -gSOM/tau_i_SOM     : siemens
         dgVIP/dt    = -gVIP/tau_i_VIP     : siemens
@@ -373,7 +375,10 @@ CONFIG = {
         'reset': 'v=V_reset; w+=b',
 
         'common_namespace': {
-            'tau_e_AMPA': tau_e_AMPA,
+            'tau_e_AMPA_E':   tau_e_AMPA_E,
+            'tau_e_AMPA_PV':  tau_e_AMPA_PV,
+            'tau_e_AMPA_SOM': tau_e_AMPA_SOM,
+            'tau_e_AMPA_VIP': tau_e_AMPA_VIP,
             'tau_e_NMDA': tau_e_NMDA,
             'tau_i_PV':   tau_i_PV,
             'tau_i_SOM':  tau_i_SOM,
@@ -429,7 +434,10 @@ CONFIG = {
     },
 
     'time_constants': {
-        'E_AMPA': tau_e_AMPA,
+        'E_AMPA_E':   tau_e_AMPA_E,
+        'E_AMPA_PV':  tau_e_AMPA_PV,
+        'E_AMPA_SOM': tau_e_AMPA_SOM,
+        'E_AMPA_VIP': tau_e_AMPA_VIP,
         'E_NMDA': tau_e_NMDA,
         'I_PV':   tau_i_PV,
         'I_SOM':  tau_i_SOM,

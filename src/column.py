@@ -58,14 +58,47 @@ class CorticalColumn:
                     self.config
                 )
 
-    def _get_inter_layer_delay_params(self, pre_pop, excitatory):
-        if excitatory:
-            delay_mean = 1.5*ms
-            delay_std = 0.8*ms
-        else:
-            delay_mean = 1.0*ms
-            delay_std = 0.5*ms
-        return delay_mean, delay_std
+    def _get_inter_layer_delay_params(self, pre_pop, post_pop,
+                                   source_layer, target_layer):
+        
+        PRIMATE_SCALE = 1.4  # cortical thickness scaling for macaque vs mouse
+        
+        inter_delay_EE = {
+            ('L23', 'L4AB'): 1.6, ('L23', 'L4C'): 1.6,
+            ('L23', 'L5'):   1.8,
+            ('L23', 'L6'):   2.5,
+            ('L4AB', 'L23'): 2.3, ('L4C', 'L23'):  2.3,
+            ('L4AB', 'L4C'): 1.3, ('L4C', 'L4AB'): 1.3,
+            ('L4AB', 'L5'):  1.5, ('L4C', 'L5'):   1.5,
+            ('L4AB', 'L6'):  1.9, ('L4C', 'L6'):   1.9,
+            ('L5', 'L23'):   3.0, ('L5', 'L4AB'):  2.5,
+            ('L5', 'L4C'):   2.5, ('L5', 'L5'):    1.5,
+            ('L5', 'L6'):    1.8,
+            ('L6', 'L23'):   3.0,  
+            ('L6', 'L4AB'):  2.5, 
+            ('L6', 'L4C'):   2.5, 
+            ('L6', 'L5'):    3.5,
+            ('L6', 'L6'):    1.8,
+        }
+        
+        base_ms = inter_delay_EE.get((source_layer, target_layer), 1.8)
+        
+        # Adjust by presynaptic cell type (axon speed differences)
+        # These ratios come from the intra-layer table:
+        # PV axons are ~0.75x the E delay (fastest)
+        # SOM axons are ~1.0x the E delay (similar)  
+        # VIP axons are ~2.5x the E delay (slowest, thin unmyelinated)
+        pre_scale = {
+            'E':   1.0,
+            'PV':  0.75,
+            'SOM': 1.0,
+            'VIP': 2.5,
+        }.get(pre_pop, 1.0)
+        
+        mean_ms = base_ms * pre_scale * PRIMATE_SCALE
+        std_ms = mean_ms * 0.3  
+        
+        return mean_ms * ms, std_ms * ms
 
     def _create_inter_layer_connections(self):
   
@@ -91,7 +124,7 @@ class CorticalColumn:
                 if src_group is None or tgt_group is None:
                     continue
                 
-                delay_mean, delay_std = self._get_inter_layer_delay_params(pre, excitatory)
+                delay_mean, delay_std = self._get_inter_layer_delay_params(pre, post, source_layer, target_layer)
                 delay_expr = (f'{delay_mean/ms}*ms + '
                              f'clip(randn()*{delay_std/ms}, '
                              f'-{delay_std/ms}*0.5, {delay_std/ms}*2)*ms')
@@ -103,13 +136,12 @@ class CorticalColumn:
                     nmda_key = f'{conn}_NMDA'
                     
                     g_ampa = cond_dict.get(ampa_key, 0.01)
-                    g_nmda = cond_dict.get(nmda_key, 0.005)
-                    
-                    on_pre = f'''
-                    gE_AMPA_post += {g_ampa}*nS
-                    gE_NMDA_post += {g_nmda}*nS
-                    '''
-                    
+                    g_nmda = cond_dict.get(nmda_key, 0.0)
+
+                    on_pre = f'gE_AMPA_post += {g_ampa}*nS'
+                    if g_nmda > 0:
+                        on_pre += f'\ngE_NMDA_post += {g_nmda}*nS'
+
                     syn = Synapses(
                         src_group,
                         tgt_group,
@@ -118,7 +150,6 @@ class CorticalColumn:
                     syn.connect(p=float(prob))
                     #optional delays 
                     syn.delay = delay_expr
-                    
                     
                     self.inter_layer_synapses[connection_name] = syn
                     
