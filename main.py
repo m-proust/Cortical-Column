@@ -16,7 +16,7 @@ def main():
 
     
     baseline_time = 2000 # In ms, time during which to run the baseline simulation
-    stimuli_time = 1500 # In ms, time during which to run the simulation after adding the stimuli
+    stimuli_time = 2500 # In ms, time during which to run the simulation after adding the stimuli
 
     print(" Creating cortical column...")
     column = CorticalColumn(column_id=0, config=CONFIG)
@@ -44,7 +44,7 @@ def main():
    
     
     L4C_E_grp = L4C.neuron_groups['E']
-    N_stim_E = 40
+    N_stim_E = 60
     stim_rate_E = 6*Hz  
     L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
                                   N=N_stim_E, 
@@ -53,7 +53,7 @@ def main():
     
     
     L4C_PV_grp = L4C.neuron_groups['PV']
-    N_stim_PV = 40
+    N_stim_PV = 60
     stim_rate_PV = 8*Hz 
     L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
                                N=N_stim_PV, 
