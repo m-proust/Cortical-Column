@@ -225,7 +225,7 @@ def _cell_type_from_key(key):
 # Main
 # ══════════════════════════════════════════════════════════════════════════════
 
-fname = "results/farzin_trial/trial_000.npz"
+fname = "results/10s_26_03/trial_000.npz"
 data = np.load(fname, allow_pickle=True)
 spike_data = (data["spike_data"].item()
               if data["spike_data"].size == 1

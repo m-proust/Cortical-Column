@@ -3,17 +3,17 @@ import shutil
 import numpy as np
 import brian2 as b2
 from brian2 import *
-from config_farzin.config2 import CONFIG
+from config.config2 import CONFIG
 from src.column import CorticalColumn
 from src.visualization import *
 from src.analysis import *
 
 
 CONFIG_FILES = [
-    "config_farzin/config2.py",
-    "config_farzin/conductances_AMPA2_alpha_v2.csv",
-    "config_farzin/conductances_NMDA2_alpha_v2.csv",
-    "config_farzin/connection_probabilities2.csv",
+    "config/config2.py",
+    "config/conductances_AMPA2_alpha_v2.csv",
+    "config/conductances_NMDA2_alpha_v2.csv",
+    "config/connection_probabilities2.csv",
     "main.py",
     "trials.py",
 ]
@@ -65,7 +65,58 @@ def run_single_trial(
 
     w_ext_AMPA = config['synapses']['Q']['EXT_AMPA']
 
-    # # --- Run baseline ---
+
+
+   
+    
+   
+
+    L4C = column.layers['L4C']
+    cfg_L4C = CONFIG['layers']['L4C']
+   
+    
+    L4C_E_grp = L4C.neuron_groups['E']
+    N_stim_E = 60
+    stim_rate_E = 6*Hz  
+    L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
+                                  N=N_stim_E, 
+                                  rate=stim_rate_E, 
+                                  weight=w_ext_AMPA)  
+    
+    
+    L4C_PV_grp = L4C.neuron_groups['PV']
+    N_stim_PV = 60
+    stim_rate_PV = 8*Hz 
+    L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
+                               N=N_stim_PV, 
+                               rate=stim_rate_PV, 
+                               weight=w_ext_AMPA*2.5)  
+    
+    
+    L6 = column.layers['L6']
+    cfg_L6 = CONFIG['layers']['L6']
+    L6_PV_grp = L6.neuron_groups['PV']
+    N_stim_L6_PV = 10
+    stim_rate_L6_PV = 5*Hz  
+    
+    L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
+                             N=N_stim_L6_PV, 
+                             rate=stim_rate_L6_PV, 
+                             weight=w_ext_AMPA)
+    L6_E_grp = L6.neuron_groups['E']
+    N_stim_L6_E = 10
+    stim_rate_L6_E = 5*Hz  
+    
+    L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
+                             N=N_stim_L6_E, 
+                             rate=stim_rate_L6_E, 
+                             weight=w_ext_AMPA*2)
+
+
+
+    column.network.add(L6_E_stim, L6_PV_stim)
+    column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
+
     column.network.run(baseline_ms * ms)
     # L4C = column.layers['L4C']
     # L4C_E_grp = L4C.neuron_groups['E']
@@ -287,6 +338,6 @@ if __name__ == "__main__":
         baseline_ms=6000,
         stimuli_ms=6000,
         fs=10000,
-        save_dir="results/farzin_trial",
+        save_dir="results/10s_26_03",
         verbose=True,
     )

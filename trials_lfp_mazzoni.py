@@ -73,43 +73,43 @@ def run_single_trial(
 
    
 
-    L4C = column.layers['L4C']
-    L4C_E_grp = L4C.neuron_groups['E']
-    L4C_PV_grp = L4C.neuron_groups['PV']
+    # L4C = column.layers['L4C']
+    # L4C_E_grp = L4C.neuron_groups['E']
+    # L4C_PV_grp = L4C.neuron_groups['PV']
 
-    N_lgn_L4C = 300         # large LGN pool, low p → ~1.4% pairwise correlation
-    lgn_L4C = PoissonGroup(N_lgn_L4C, rates=80*Hz)
+    # N_lgn_L4C = 300         # large LGN pool, low p → ~1.4% pairwise correlation
+    # lgn_L4C = PoissonGroup(N_lgn_L4C, rates=80*Hz)
 
-    lgn_L4C_E_syn = Synapses(lgn_L4C, L4C_E_grp,
-                              on_pre='gE_AMPA_post += %f*nS' % (w_ext_AMPA/nS))
-    lgn_L4C_E_syn.connect(p=0.12)   # each E gets ~36 LGN inputs (300*0.12)
-    lgn_L4C_E_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
+    # lgn_L4C_E_syn = Synapses(lgn_L4C, L4C_E_grp,
+    #                           on_pre='gE_AMPA_post += %f*nS' % (w_ext_AMPA/nS))
+    # lgn_L4C_E_syn.connect(p=0.12)   # each E gets ~36 LGN inputs (300*0.12)
+    # lgn_L4C_E_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
 
-    lgn_L4C_PV_syn = Synapses(lgn_L4C, L4C_PV_grp,
-                               on_pre='gE_AMPA_post += %f*nS' % (w_ext_AMPA/nS))
-    lgn_L4C_PV_syn.connect(p=0.10)  # each PV gets ~30 LGN inputs
-    lgn_L4C_PV_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
+    # lgn_L4C_PV_syn = Synapses(lgn_L4C, L4C_PV_grp,
+    #                            on_pre='gE_AMPA_post += %f*nS' % (w_ext_AMPA/nS))
+    # lgn_L4C_PV_syn.connect(p=0.10)  # each PV gets ~30 LGN inputs
+    # lgn_L4C_PV_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
 
-    # L6 thalamic drive
-    L6 = column.layers['L6']
-    L6_E_grp = L6.neuron_groups['E']
-    L6_PV_grp = L6.neuron_groups['PV']
+    # # L6 thalamic drive
+    # L6 = column.layers['L6']
+    # L6_E_grp = L6.neuron_groups['E']
+    # L6_PV_grp = L6.neuron_groups['PV']
 
-    N_lgn_L6 = 200          # weaker thalamic drive to L6 than L4C
-    lgn_L6 = PoissonGroup(N_lgn_L6, rates=15*Hz)
+    # N_lgn_L6 = 200          # weaker thalamic drive to L6 than L4C
+    # lgn_L6 = PoissonGroup(N_lgn_L6, rates=15*Hz)
 
-    lgn_L6_E_syn = Synapses(lgn_L6, L6_E_grp,
-                             on_pre='gE_AMPA_post += %f*nS' % (0.7 * w_ext_AMPA/nS))
-    lgn_L6_E_syn.connect(p=0.08)    # each E gets ~16 LGN inputs, weaker weight
-    lgn_L6_E_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
+    # lgn_L6_E_syn = Synapses(lgn_L6, L6_E_grp,
+    #                          on_pre='gE_AMPA_post += %f*nS' % (0.7 * w_ext_AMPA/nS))
+    # lgn_L6_E_syn.connect(p=0.08)    # each E gets ~16 LGN inputs, weaker weight
+    # lgn_L6_E_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
 
-    lgn_L6_PV_syn = Synapses(lgn_L6, L6_PV_grp,
-                              on_pre='gE_AMPA_post += %f*nS' % (0.7 * w_ext_AMPA/nS))
-    lgn_L6_PV_syn.connect(p=0.08)   # each PV gets ~16 LGN inputs
-    lgn_L6_PV_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
+    # lgn_L6_PV_syn = Synapses(lgn_L6, L6_PV_grp,
+    #                           on_pre='gE_AMPA_post += %f*nS' % (0.7 * w_ext_AMPA/nS))
+    # lgn_L6_PV_syn.connect(p=0.08)   # each PV gets ~16 LGN inputs
+    # lgn_L6_PV_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
 
-    column.network.add(lgn_L4C, lgn_L4C_E_syn, lgn_L4C_PV_syn)
-    column.network.add(lgn_L6, lgn_L6_E_syn, lgn_L6_PV_syn)
+    # column.network.add(lgn_L4C, lgn_L4C_E_syn, lgn_L4C_PV_syn)
+    # column.network.add(lgn_L6, lgn_L6_E_syn, lgn_L6_PV_syn)
 
 
     column.network.run(baseline_ms * ms)
@@ -295,6 +295,6 @@ if __name__ == "__main__":
         baseline_ms=5000,
         stimuli_ms=5000,
         fs=10000,
-        save_dir="results/10s_with_PV_delay_PG",
+        save_dir="results/10s_26_03",
         verbose=True,
     )
