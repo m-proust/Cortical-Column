@@ -8,11 +8,11 @@ from matplotlib.gridspec import GridSpec
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("Paired")
 
-base_path = "results/trials_23_03"
+base_path = "results/trials_26_03_3"
 
 
 
-n_trials = 5
+n_trials = 50
 all_trials = []
 
 for trial_idx in range(n_trials):
@@ -238,7 +238,7 @@ def plot_laminar_spectral_profile(all_trials, pre_window_ms=1000, post_window_ms
 
     # ---- Percent Change (FIXED SCALE) ----
     vmin_pct = -100
-    vmax_pct = 500
+    vmax_pct = 1000
     norm = TwoSlopeNorm(vmin=vmin_pct, vcenter=0, vmax=vmax_pct)
 
 

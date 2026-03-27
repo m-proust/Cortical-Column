@@ -7,7 +7,7 @@ import seaborn as sns
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("Paired")
 
-fname = "results/farzin_trial/trial_000.npz"
+fname = "results/trials_27_03_12s/trial_000.npz"
 fs = 10000                 
 dt = 1.0 / fs     
 sigma_ms = 1.0  
@@ -17,7 +17,7 @@ freqs_of_interest = np.arange(1, 101)
 bw = 2.0        
 bp_order = 4       
 
-layers = ['L1']
+layers = ['L23','L4AB','L4C','L5','L6']
 pops = ['E', 'PV', 'SOM']
 pop_colors = {'E': "#1d970d", 'PV': '#d62728', 'SOM': "#3629c8", 'VIP': "#d22dac"}
 

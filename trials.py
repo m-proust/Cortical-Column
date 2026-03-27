@@ -71,13 +71,60 @@ def run_single_trial(
     
    
 
+    # L4C = column.layers['L4C']
+    # cfg_L4C = CONFIG['layers']['L4C']
+   
+    
+    # L4C_E_grp = L4C.neuron_groups['E']
+    # N_stim_E = 60
+    # stim_rate_E = 6*Hz  
+    # L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
+    #                               N=N_stim_E, 
+    #                               rate=stim_rate_E, 
+    #                               weight=w_ext_AMPA)  
+    
+    
+    # L4C_PV_grp = L4C.neuron_groups['PV']
+    # N_stim_PV = 60
+    # stim_rate_PV = 8*Hz 
+    # L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
+    #                            N=N_stim_PV, 
+    #                            rate=stim_rate_PV, 
+    #                            weight=w_ext_AMPA*2.5)  
+    
+    
+    # L6 = column.layers['L6']
+    # cfg_L6 = CONFIG['layers']['L6']
+    # L6_PV_grp = L6.neuron_groups['PV']
+    # N_stim_L6_PV = 10
+    # stim_rate_L6_PV = 5*Hz  
+    
+    # L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
+    #                          N=N_stim_L6_PV, 
+    #                          rate=stim_rate_L6_PV, 
+    #                          weight=w_ext_AMPA)
+    # L6_E_grp = L6.neuron_groups['E']
+    # N_stim_L6_E = 10
+    # stim_rate_L6_E = 5*Hz  
+    
+    # L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
+    #                          N=N_stim_L6_E, 
+    #                          rate=stim_rate_L6_E, 
+    #                          weight=w_ext_AMPA*2)
+
+
+
+    # column.network.add(L6_E_stim, L6_PV_stim)
+    # column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
+
+    
     L4C = column.layers['L4C']
     cfg_L4C = CONFIG['layers']['L4C']
    
     
     L4C_E_grp = L4C.neuron_groups['E']
-    N_stim_E = 60
-    stim_rate_E = 6*Hz  
+    N_stim_E = 30
+    stim_rate_E = 4*Hz  
     L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
                                   N=N_stim_E, 
                                   rate=stim_rate_E, 
@@ -85,8 +132,8 @@ def run_single_trial(
     
     
     L4C_PV_grp = L4C.neuron_groups['PV']
-    N_stim_PV = 60
-    stim_rate_PV = 8*Hz 
+    N_stim_PV = 30
+    stim_rate_PV = 4*Hz 
     L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
                                N=N_stim_PV, 
                                rate=stim_rate_PV, 
@@ -116,45 +163,7 @@ def run_single_trial(
 
     column.network.add(L6_E_stim, L6_PV_stim)
     column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
-
     column.network.run(baseline_ms * ms)
-    # L4C = column.layers['L4C']
-    # L4C_E_grp = L4C.neuron_groups['E']
-    # L4C_PV_grp = L4C.neuron_groups['PV']
-
-    # N_lgn_L4C = 300         # large LGN pool, low p → ~1.4% pairwise correlation
-    # lgn_L4C = PoissonGroup(N_lgn_L4C, rates=80*Hz)
-
-    # lgn_L4C_E_syn = Synapses(lgn_L4C, L4C_E_grp,
-    #                           on_pre='gE_AMPA_post += %f*nS' % (w_ext_AMPA/nS))
-    # lgn_L4C_E_syn.connect(p=0.12)   # each E gets ~36 LGN inputs (300*0.12)
-    # lgn_L4C_E_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
-
-    # lgn_L4C_PV_syn = Synapses(lgn_L4C, L4C_PV_grp,
-    #                            on_pre='gE_AMPA_post += %f*nS' % (w_ext_AMPA/nS))
-    # lgn_L4C_PV_syn.connect(p=0.10)  # each PV gets ~30 LGN inputs
-    # lgn_L4C_PV_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
-
-    # # L6 thalamic drive
-    # L6 = column.layers['L6']
-    # L6_E_grp = L6.neuron_groups['E']
-    # L6_PV_grp = L6.neuron_groups['PV']
-
-    # N_lgn_L6 = 200          # weaker thalamic drive to L6 than L4C
-    # lgn_L6 = PoissonGroup(N_lgn_L6, rates=15*Hz)
-
-    # lgn_L6_E_syn = Synapses(lgn_L6, L6_E_grp,
-    #                          on_pre='gE_AMPA_post += %f*nS' % (0.7 * w_ext_AMPA/nS))
-    # lgn_L6_E_syn.connect(p=0.08)    # each E gets ~16 LGN inputs, weaker weight
-    # lgn_L6_E_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
-
-    # lgn_L6_PV_syn = Synapses(lgn_L6, L6_PV_grp,
-    #                           on_pre='gE_AMPA_post += %f*nS' % (0.7 * w_ext_AMPA/nS))
-    # lgn_L6_PV_syn.connect(p=0.08)   # each PV gets ~16 LGN inputs
-    # lgn_L6_PV_syn.delay = 'clip(1.0 + randn()*0.3, 0.5, 2.0)*ms'
-
-    # column.network.add(lgn_L4C, lgn_L4C_E_syn, lgn_L4C_PV_syn)
-    # column.network.add(lgn_L6, lgn_L6_E_syn, lgn_L6_PV_syn)
 
     column.network.run(stimuli_ms * ms)
 
@@ -338,6 +347,6 @@ if __name__ == "__main__":
         baseline_ms=6000,
         stimuli_ms=6000,
         fs=10000,
-        save_dir="results/10s_26_03",
+        save_dir="results/trials_27_03_12s",
         verbose=True,
     )
