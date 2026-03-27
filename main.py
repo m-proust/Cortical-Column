@@ -65,7 +65,7 @@ def main():
     cfg_L6 = CONFIG['layers']['L6']
     L6_PV_grp = L6.neuron_groups['PV']
     N_stim_L6_PV = 10
-    stim_rate_L6_PV = 5*Hz  
+    stim_rate_L6_PV = 4*Hz  
     
     L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
                              N=N_stim_L6_PV, 
@@ -73,7 +73,7 @@ def main():
                              weight=w_ext_AMPA)
     L6_E_grp = L6.neuron_groups['E']
     N_stim_L6_E = 10
-    stim_rate_L6_E = 5*Hz  
+    stim_rate_L6_E = 4*Hz  
     
     L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
                              N=N_stim_L6_E, 
@@ -151,9 +151,9 @@ def main():
                         time_array,
                         electrode_positions,
                         baseline_time=baseline_time,
-                        pre_stim_duration=1000,
-                        post_stim_duration=1000,
-                        transient_skip=500
+                        pre_stim_duration=300,
+                        post_stim_duration=300,
+                        transient_skip=300
                     )
 
     fig_power_bipolar = plot_bipolar_power_comparison_kernel(
@@ -162,9 +162,9 @@ def main():
                         channel_depths,
                         time_array,
                         baseline_time=baseline_time,
-                        pre_stim_duration=1000,
-                        post_stim_duration=1000,
-                        transient_skip=500
+                        pre_stim_duration=300,
+                        post_stim_duration=300,
+                        transient_skip=300
                     )
 
 

@@ -15,9 +15,9 @@ T_DISCARD = 2.0       # seconds of transient to discard
 T_ANALYSIS = 10.0     # seconds of signal for analysis (paper: "10 s duration")
 MIN_SPIKES = 5        # minimum spikes per neuron to include in PPC
 BW_HALF = 5.0         # half-bandwidth for bandpass filter (Hz)
-FREQ_RANGE = (5, 90)
+FREQ_RANGE = (5, 120)
 FREQ_STEP = 2.0
-MAX_E_NEURONS = 500   # subsample E neurons for speed
+MAX_E_NEURONS = 1000   # subsample E neurons for speed
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -233,7 +233,9 @@ spike_data = (data["spike_data"].item()
 lfp_full_data = (data["lfp_full"].item()
                  if data["lfp_full"].size == 1
                  else data["lfp_full"])
-
+bipolar_lfp = (data["bipolar_matrix"].item()
+                 if data["bipolar_matrix"].size == 1
+                 else data["bipolar_matrix"])
 dt_sec = float(CONFIG['simulation']['DT'] / second)
 dt_ms = dt_sec * 1000.0
 sim_duration_ms = float(data["time_array_ms"][-1])
@@ -256,13 +258,20 @@ for layer_name, layer_mons in spike_data.items():
 # ══════════════════════════════════════════════════════════════════════════════
 
 results = {}
-
+electrodes = {'L23': 10, 'L4AB':8, 'L4C':6, 'L5':4, 'L6':3 }
 for layer_name in all_spike_trains:
     results[layer_name] = {}
+    electrode = electrodes[layer_name]
 
     # ── Step 1: Load pre-computed E smooth rate as LFP proxy ──
     lfp_full = lfp_full_data[layer_name]
+    # lfp_full = bipolar_lfp[electrode]
     t_full = np.arange(len(lfp_full)) * dt_sec
+    # t_full = data["time_array_ms"] / 1000.0
+
+
+
+
 
     # ── Step 2: Select analysis window [t_discard, t_discard + t_analysis] ──
     t_end = T_DISCARD + T_ANALYSIS
@@ -281,7 +290,7 @@ for layer_name in all_spike_trains:
     freqs_fft = np.fft.rfftfreq(N_fft, d=dt_sec)
     fft_mag = np.abs(np.fft.rfft(lfp_normalized))
 
-    gamma_mask_fft = (freqs_fft >= 20) & (freqs_fft <= 80)
+    gamma_mask_fft = (freqs_fft >= 30) & (freqs_fft <= 110)
     peak_idx_fft = np.argmax(fft_mag[gamma_mask_fft])
     f_peak = freqs_fft[gamma_mask_fft][peak_idx_fft]
     print(f"  Peak oscillation frequency: {f_peak:.1f} Hz")

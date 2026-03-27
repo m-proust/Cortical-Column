@@ -8,11 +8,11 @@ from matplotlib.gridspec import GridSpec
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("Paired")
 
-base_path = "results/trials_26_03_3"
+base_path = "results/trials_27_03_3"
 
 
 
-n_trials = 50
+n_trials = 38
 all_trials = []
 
 for trial_idx in range(n_trials):
@@ -436,7 +436,7 @@ if 'mazzoni_lfp_matrix' in all_trials[0]:
         all_trials,
         pre_window_ms=300,
         post_window_ms=300,
-        post_start_ms=200,
+        post_start_ms=500,
         freq_range=(1, 120),
         log_freq=False,
         remove_mean=True,

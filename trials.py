@@ -66,58 +66,7 @@ def run_single_trial(
     w_ext_AMPA = config['synapses']['Q']['EXT_AMPA']
 
 
-
-   
-    
-   
-
-    # L4C = column.layers['L4C']
-    # cfg_L4C = CONFIG['layers']['L4C']
-   
-    
-    # L4C_E_grp = L4C.neuron_groups['E']
-    # N_stim_E = 60
-    # stim_rate_E = 6*Hz  
-    # L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
-    #                               N=N_stim_E, 
-    #                               rate=stim_rate_E, 
-    #                               weight=w_ext_AMPA)  
-    
-    
-    # L4C_PV_grp = L4C.neuron_groups['PV']
-    # N_stim_PV = 60
-    # stim_rate_PV = 8*Hz 
-    # L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
-    #                            N=N_stim_PV, 
-    #                            rate=stim_rate_PV, 
-    #                            weight=w_ext_AMPA*2.5)  
-    
-    
-    # L6 = column.layers['L6']
-    # cfg_L6 = CONFIG['layers']['L6']
-    # L6_PV_grp = L6.neuron_groups['PV']
-    # N_stim_L6_PV = 10
-    # stim_rate_L6_PV = 5*Hz  
-    
-    # L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
-    #                          N=N_stim_L6_PV, 
-    #                          rate=stim_rate_L6_PV, 
-    #                          weight=w_ext_AMPA)
-    # L6_E_grp = L6.neuron_groups['E']
-    # N_stim_L6_E = 10
-    # stim_rate_L6_E = 5*Hz  
-    
-    # L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
-    #                          N=N_stim_L6_E, 
-    #                          rate=stim_rate_L6_E, 
-    #                          weight=w_ext_AMPA*2)
-
-
-
-    # column.network.add(L6_E_stim, L6_PV_stim)
-    # column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
-
-    
+    column.network.run(baseline_ms * ms)
     L4C = column.layers['L4C']
     cfg_L4C = CONFIG['layers']['L4C']
    
@@ -163,7 +112,6 @@ def run_single_trial(
 
     column.network.add(L6_E_stim, L6_PV_stim)
     column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
-    column.network.run(baseline_ms * ms)
 
     column.network.run(stimuli_ms * ms)
 
@@ -343,10 +291,10 @@ def run_multiple_trials(
 if __name__ == "__main__":
     run_multiple_trials(
         CONFIG,
-        n_trials=1,
-        baseline_ms=6000,
-        stimuli_ms=6000,
+        n_trials=100,
+        baseline_ms=2000,
+        stimuli_ms=2000,
         fs=10000,
-        save_dir="results/trials_27_03_12s",
+        save_dir="results/trials_27_03_3",
         verbose=True,
     )
