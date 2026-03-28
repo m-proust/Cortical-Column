@@ -295,6 +295,6 @@ if __name__ == "__main__":
         baseline_ms=2000,
         stimuli_ms=2000,
         fs=10000,
-        save_dir="results/trials_27_03_4",
+        save_dir="results/trials_28_03",
         verbose=True,
     )
