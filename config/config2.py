@@ -5,7 +5,8 @@ import pandas as pd                                 #                   .'      
 from collections import defaultdict                 #             r~.    :           .l[                                  
                                                     #              .JI;. ;          ^II                                   
 EXT_NMDA_WEIGHT = 0.45*nS                           #                `iI_;|          ;I                                   
-EXT_AMPA_WEIGHT = 1.25*nS                           #                  'I;!          zIlq..`h!p.      i.                                                #    .k  i.         .YIU         l;I;la..foc:     \    .b|k           
+EXT_AMPA_WEIGHT = 1.25*nS                           #                  'I;!          zIlq..`h!p.      i.                                                
+                                                    #    .k  i.         .YIU         l;I;la..foc:     \    .b|k           
 tau_e_NMDA = 100*ms                                 #     .#` M.    tZ}?]I;Ik.        ;;!.          :.{.  kIpo'           
 tau_i_PV   =  6*ms                                  #      .YIIh.         `f:a.     '*;Iw           #;!!Il0'              
 tau_i_SOM  = 20*ms                                  # .       1>}.          Z;;Z:.`d;;;;_       ..;x;lC`                  
@@ -27,10 +28,10 @@ def g_NMDA(v_mV):                                   #      .~I'  oL. .II     <;:
                                                     #              C:Ic ^/  M:::::lm                                      
                                                     #               'u      lI:::::.                                      
                                                     #               [       :l:::;:.                                      
-tau_e_AMPA_E   = 5*ms   # E neurons                 #                       *n}I;Ii                                       
-tau_e_AMPA_PV  = 1*ms   # PV neurons                #                       ::::,Id                                       
-tau_e_AMPA_SOM = 2*ms   # SOM neurons               #                      .I:::::;.                                      
-tau_e_AMPA_VIP = 2*ms   # VIP neurons               #                       :;::::;w                                          
+tau_e_AMPA_E   = 5*ms                               #                       *n}I;Ii                                       
+tau_e_AMPA_PV  = 1*ms                               #                       ::::,Id                                       
+tau_e_AMPA_SOM = 2*ms                               #                      .I:::::;.                                      
+tau_e_AMPA_VIP = 2*ms                               #                       :;::::;w                                          
                                                     #                      .M;:::::".                                     
                                                     #                        l;::::!m                                     
                                                     #                       'L::::;;Z                                     
@@ -71,7 +72,7 @@ csv_layer_configs, _INTER_LAYER_CONNECTIONS, _INTER_LAYER_CONDUCTANCES = load_co
 
 
 
-# Temporarily disable inter-layer connections to test alpha generation
+# Temporarily disable inter-layer connections
 # _INTER_LAYER_CONNECTIONS = {}
 # _INTER_LAYER_CONDUCTANCES = {}
 
@@ -79,17 +80,12 @@ _LAYER_CONFIGS = {
     'L23': {
         'connection_prob': csv_layer_configs['L23']['connection_prob'],
         'conductance': csv_layer_configs['L23']['conductance'],
-        # 'intrinsic_params': {
-        #     'E': {'b': 80*pA, 'tauw': 150*ms}, 
-        # },
+
         'poisson_inputs': {
             'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 24},
             'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},         
             'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 23},
             'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 15},
-            # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
-            # 'SOM_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 10},
-            # 'VIP_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 20},
 
         },
         'input_rate': 4*Hz,
@@ -106,13 +102,10 @@ _LAYER_CONFIGS = {
         'conductance': csv_layer_configs['L4AB']['conductance'],
         'poisson_inputs': {
             'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 34},
-            # 'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 54}, 
             'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
             'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 23},
             'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
-            # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
-            # 'SOM_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
-            # 'VIP_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
+
 
         },
         'input_rate': 4*Hz,
@@ -129,16 +122,13 @@ _LAYER_CONFIGS = {
         'conductance': csv_layer_configs['L4C']['conductance'],
         'poisson_inputs': {
             'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 34},
-            # 'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 54}, 
             'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 22},
             'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 22},
             'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
-            # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
-            # 'SOM_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
-            # 'VIP_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 20},
+         
 
         },
-        'input_rate': 5*Hz,
+        'input_rate': 4*Hz,
         'neuron_counts': {'E': 3192, 'PV': 320, 'SOM': 200, 'VIP': 88},
         'coordinates' : {
             'x': (-0.15,0.15),
@@ -152,14 +142,10 @@ _LAYER_CONFIGS = {
         'conductance': csv_layer_configs['L5']['conductance'],
         'poisson_inputs': {
           'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 34},
-            # 'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 54} 
             'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
             'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
             'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 5},
-            # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 25},
-            # # 'PV_NMDA':  {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 10},
-            # 'SOM_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 35},
-            # 'VIP_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 35},
+        
 
         },
         'input_rate': 4*Hz,
@@ -179,11 +165,7 @@ _LAYER_CONFIGS = {
             'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 14},    
              'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 16},
             'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 15},
-            # 'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
-            # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 55},
-            # 'PV_NMDA':  {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 10},
-            # 'SOM_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 25},
-            # 'VIP_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
+
 
         },
         'input_rate': 5*Hz,

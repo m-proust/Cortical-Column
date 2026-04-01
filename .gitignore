@@ -2,8 +2,6 @@
 */__pycache__
 *.pyc
 *.npy
-first_sim.py
-/bazar
 /bin
 /results
 /test_trials

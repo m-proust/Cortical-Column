@@ -245,62 +245,6 @@ def plot_rate(rate_monitors, layer_configs, baseline_time, stim_time, figsize=(1
 
 
 
-def plot_peak_freq_track(state_monitors, layer_configs, f_gamma=(20, 80), fmax=100,
-                            win_ms=250, step_ms=25, light_window=(2.0, 4.0), figsize=(12, 4)):
-
-    import matplotlib.pyplot as plt
-    figs = []
-    for layer_name, monitors in state_monitors.items():
-        if 'E_state' not in monitors:
-            continue
-        time_ms, lfp = process_lfp(monitors['E_state'])
-        t_spec, f, Sxx = compute_spectrogram(time_ms, lfp, fmax=fmax,
-                                                            win_ms=win_ms, step_ms=step_ms)
-        peak_f, peak_p = peak_frequency_track(f, Sxx, f_gamma=f_gamma)
-
-        fig, ax = plt.subplots(1, 1, figsize=figsize)
-        ax.plot(t_spec, peak_f, lw=2)
-        ax.set_title(f'{layer_name} Gamma Peak Frequency ({f_gamma[0]}–{f_gamma[1]} Hz)')
-        ax.set_xlabel('Time (s)')
-        ax.set_ylabel('Peak freq (Hz)')
-        if light_window is not None:
-            on, off = light_window
-            ax.axvline(on, color='k', ls='--', lw=1)
-            ax.axvline(off, color='k', ls='--', lw=1)
-        ax.set_ylim(f_gamma[0], f_gamma[1])
-        ax.grid(alpha=0.3)
-        figs.append(fig)
-    return figs
-
-    
-def plot_lfp_kernel(lfp_signals, time_array, electrode_positions, figsize=(15, 10)):
-    n_electrodes = len(lfp_signals)
-    
-    fig, axes = plt.subplots(n_electrodes, 1, figsize=figsize, sharex=True)
-    if n_electrodes == 1:
-        axes = [axes]
-    
-    for i, (elec_idx, lfp) in enumerate(lfp_signals.items()):
-        ax = axes[i]
-        ex, ey, ez = electrode_positions[elec_idx]
-        
-        # if np.std(lfp) > 0:
-        #     lfp_norm = (lfp - np.mean(lfp)) / np.std(lfp)
-        # else:
-        lfp_norm = lfp
-        
-        ax.plot(time_array, lfp_norm, 'b-', linewidth=0.5)
-        ax.set_ylabel('LFP (norm)')
-        #ax.set_title(f'Electrode {i} at z={ez:.3f} mm')
-        ax.grid(True, alpha=0.3)
-        
-        ax.set_xlim(200, 1000)
-        ax.set_ylim(-250, 100)
-    
-    axes[-1].set_xlabel('Time (ms)')
-    plt.tight_layout()
-    return fig
-
 def plot_bipolar_lfp(bipolar_signals, channel_labels, channel_depths, time_array, 
                      figsize=(14, 10), time_range=(0, 1000)):
 

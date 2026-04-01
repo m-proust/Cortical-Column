@@ -20,7 +20,6 @@ CONFIG_FILES = [
 
 
 def save_config_snapshot(save_dir, base_dir=None):
-    """Copy config, main.py, and trials.py into save_dir/config_snapshot/ for reproducibility."""
     if base_dir is None:
         base_dir = os.path.dirname(os.path.abspath(__file__))
     snapshot_dir = os.path.join(save_dir, "config_snapshot")
@@ -60,12 +59,18 @@ def run_single_trial(
         print("Creating cortical column...")
 
     column = CorticalColumn(column_id=0, config=config)
+    for layer_name, layer in column.layers.items():
+        add_heterogeneity_to_layer(layer, CONFIG) # optional
 
     all_monitors = column.get_all_monitors()
 
     w_ext_AMPA = config['synapses']['Q']['EXT_AMPA']
 
 
+
+   
+    
+   
     column.network.run(baseline_ms * ms)
     L4C = column.layers['L4C']
     cfg_L4C = CONFIG['layers']['L4C']
@@ -106,12 +111,13 @@ def run_single_trial(
     L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
                              N=N_stim_L6_E, 
                              rate=stim_rate_L6_E, 
-                             weight=w_ext_AMPA*2)
+                             weight=w_ext_AMPA*2.5)
 
 
 
     column.network.add(L6_E_stim, L6_PV_stim)
     column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
+
 
     column.network.run(stimuli_ms * ms)
 
@@ -134,7 +140,7 @@ def run_single_trial(
     if verbose:
         print("Computing LFP using kernel method...")
 
-    from lfp_kernel import calculate_lfp_kernel_method
+    from tools.lfp_kernel import calculate_lfp_kernel_method
     lfp_signals, time_array = calculate_lfp_kernel_method(
         spike_monitors,
         neuron_groups,
@@ -143,28 +149,7 @@ def run_single_trial(
         sim_duration_ms=total_time
     )
 
-    # from lfp_mazzoni_method import calculate_lfp_mazzoni
 
-    # # Compute LFP
-    # lfp_signals, time_array = calculate_lfp_mazzoni(
-    #     spike_monitors,
-    #     neuron_groups,
-    #     CONFIG['layers'],
-    #     electrode_positions,
-    #     fs=10000,
-    #     sim_duration_ms=total_sim_ms
-    # )
-
-
-    if verbose:
-        print("Computing CSD from monopolar LFP...")
-
-    csd, csd_depths, csd_sort_idx = compute_csd_from_lfp(
-        lfp_signals,
-        electrode_positions,
-        sigma=0.3,
-        vaknin=True,
-    )
 
     if verbose:
         print("Computing bipolar LFP...")
@@ -210,9 +195,6 @@ def run_single_trial(
         "seed": trial_seed,
         "time_array_ms": np.array(time_array),
         "electrode_positions": np.array(electrode_positions),
-        "csd": np.array(csd),
-        "csd_depths": np.array(csd_depths),
-        "csd_sort_idx": np.array(csd_sort_idx),
         "channel_labels": np.array(channel_labels, dtype=object),
         "channel_depths": np.array(channel_depths),
         "rate_data": rate_data,
@@ -269,9 +251,6 @@ def run_multiple_trials(
             "electrode_positions": data["electrode_positions"],
             "lfp_matrix": data["lfp_matrix"],
             "bipolar_matrix": data["bipolar_matrix"],
-            "csd": data["csd"],
-            "csd_depths": data["csd_depths"],
-            "csd_sort_idx": data["csd_sort_idx"],
             "channel_labels": data["channel_labels"],
             "channel_depths": data["channel_depths"],
             "rate_data": data["rate_data"],
@@ -291,10 +270,10 @@ def run_multiple_trials(
 if __name__ == "__main__":
     run_multiple_trials(
         CONFIG,
-        n_trials=100,
+        n_trials=50,
         baseline_ms=2000,
         stimuli_ms=2000,
         fs=10000,
-        save_dir="results/trials_28_03",
+        save_dir="results/trials_01_04_2",
         verbose=True,
     )

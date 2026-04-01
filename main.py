@@ -6,7 +6,6 @@ from config.config2 import CONFIG
 from src.column import CorticalColumn
 from src.visualization import *
 from src.analysis import *
-from lfp_mazzoni_perlayer import calculate_lfp_mazzoni_perlayer
 
 
 def main():
@@ -35,11 +34,11 @@ def main():
 
    
 
-    column.network.run(baseline_time * ms)
+    
    
     
    
-
+    column.network.run(baseline_time * ms)
     L4C = column.layers['L4C']
     cfg_L4C = CONFIG['layers']['L4C']
    
@@ -85,6 +84,7 @@ def main():
 
     column.network.add(L6_E_stim, L6_PV_stim)
     column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
+    
 
 
     column.network.run(stimuli_time* ms)
@@ -137,13 +137,7 @@ def main():
         electrode_positions
     )
 
-    print("Computing LFP using Mazzoni per-layer method...")
-    mazzoni_lfp, mazzoni_time = calculate_lfp_mazzoni_perlayer(
-        state_monitors,
-        CONFIG['layers'],
-        fs=10000,
-        dt_ms=1.0,
-    )
+ 
 
     fig_raster = plot_raster(spike_monitors, baseline_time, stimuli_time, CONFIG['layers'])
 
@@ -168,16 +162,6 @@ def main():
                         transient_skip=300
                     )
 
-
-    fig_power_mazzoni = plot_lfp_power_comparison_mazzoni_perlayer(
-                            mazzoni_lfp,
-                            mazzoni_time,
-                            baseline_time=baseline_time,
-                            pre_stim_duration=1000,
-                            post_stim_duration=1000,
-                            transient_skip=500,
-                            fs=10000,
-                        )
 
     fig_rate = plot_rate(rate_monitors, CONFIG['layers'], baseline_time, stimuli_time,
                  smooth_window=15*ms, 

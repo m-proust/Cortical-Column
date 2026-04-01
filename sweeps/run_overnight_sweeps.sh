@@ -1,3 +1,6 @@
+#!/bin/bash
+
+
 
 set -e
 
@@ -6,27 +9,24 @@ mkdir -p "$LOG_DIR"
 
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BATCH_LOG="$LOG_DIR/batch_run_${TIMESTAMP}.log"
-SAVE_DIR="results/input_sweeps/19_02_all_layers_AMPA"
 
 echo "======================================" | tee -a "$BATCH_LOG"
 echo "Starting batch run at $(date)" | tee -a "$BATCH_LOG"
-echo "Save dir: $SAVE_DIR" | tee -a "$BATCH_LOG"
 echo "======================================" | tee -a "$BATCH_LOG"
 echo "" | tee -a "$BATCH_LOG"
-
 
 run_sweep() {
     local layer=$1
     local pop=$2
     local input_type=$3
     local weight=$4
-
-    local label="${layer}_${pop}_${input_type}_w${weight}"
+    
     echo "--------------------------------------" | tee -a "$BATCH_LOG"
-    echo "Running: $label" | tee -a "$BATCH_LOG"
+    echo "Running: Layer=$layer, Pop=$pop, Input=$input_type, Weight=$weight" | tee -a "$BATCH_LOG"
     echo "Started at: $(date)" | tee -a "$BATCH_LOG"
-
-    local run_log="$LOG_DIR/${label}_${TIMESTAMP}.log"
+    
+    local run_log="$LOG_DIR/${layer}_${pop}_${input_type}_w${weight}_${TIMESTAMP}.log"
+    
 
     if python input_sweep.py \
         --layer "$layer" \
@@ -38,67 +38,57 @@ run_sweep() {
         --rate-step 1 \
         --baseline-ms 1000 \
         --stim-ms 1500 \
-        --save-dir "$SAVE_DIR" \
+        --save-dir "results/input_sweeps2" \
         2>&1 | tee "$run_log"; then
-        echo "✓ Completed: $label at $(date)" | tee -a "$BATCH_LOG"
+        
+        echo "✓ Completed successfully at: $(date)" | tee -a "$BATCH_LOG"
     else
-        echo "✗ FAILED: $label at $(date)" | tee -a "$BATCH_LOG"
-        echo "  Log: $run_log" | tee -a "$BATCH_LOG"
+        echo "✗ FAILED at: $(date)" | tee -a "$BATCH_LOG"
+        echo "  Check log: $run_log" | tee -a "$BATCH_LOG"
     fi
-    echo "" | tee -a "$BATCH_LOG"
-}
-
-
-run_multi() {
-    local targets_args=""
-    local label=""
-    for spec in "$@"; do
-        targets_args="$targets_args --target $spec"
-        local part
-        part=$(echo "$spec" | tr ':' '_')
-        label="${label}+${part}"
-    done
-    label="${label:1}"  # strip leading +
-
-    echo "--------------------------------------" | tee -a "$BATCH_LOG"
-    echo "Running multi: $label" | tee -a "$BATCH_LOG"
-    echo "Started at: $(date)" | tee -a "$BATCH_LOG"
-
-    local run_log="$LOG_DIR/${label}_${TIMESTAMP}.log"
-
-    if python input_sweep.py \
-        $targets_args \
-        --rate-min 0 \
-        --rate-max 15 \
-        --rate-step 1 \
-        --baseline-ms 1000 \
-        --stim-ms 1500 \
-        --save-dir "$SAVE_DIR" \
-        2>&1 | tee "$run_log"; then
-        echo "✓ Completed: $label at $(date)" | tee -a "$BATCH_LOG"
-    else
-        echo "✗ FAILED: $label at $(date)" | tee -a "$BATCH_LOG"
-        echo "  Log: $run_log" | tee -a "$BATCH_LOG"
-    fi
+    
     echo "" | tee -a "$BATCH_LOG"
 }
 
 
 
-for layer in L23 L4AB L4C L5 L6; do
-    echo "" | tee -a "$BATCH_LOG"
-    echo "### ${layer} single-population AMPA sweeps ###" | tee -a "$BATCH_LOG"
-    for pop in PV E SOM VIP; do
-        run_sweep "$layer" "$pop" "AMPA" 1.0
-    done
-done
+run_sweep "L4C"   "VIP" "AMPA" 1.0
+run_sweep "L4C"   "E" "AMPA" 1.0
+run_sweep "L4C"   "PV" "AMPA" 1.0
+run_sweep "L4C"   "SOM" "AMPA" 1.0
 
 
-echo "" | tee -a "$BATCH_LOG"
+run_sweep "L4AB"   "VIP" "AMPA" 1.0
+run_sweep "L4AB"   "E" "AMPA" 1.0
+run_sweep "L4AB"   "PV" "AMPA" 1.0
+run_sweep "L4AB"   "SOM" "AMPA" 1.0
+
+
+run_sweep "L23"   "VIP" "AMPA" 1.0
+run_sweep "L23"   "E" "AMPA" 1.0
+run_sweep "L23"   "PV" "AMPA" 1.0
+run_sweep "L23"   "SOM" "AMPA" 1.0
+
+
+run_sweep "L5"   "VIP" "AMPA" 1.0
+run_sweep "L5"   "E" "AMPA" 1.0
+run_sweep "L5"   "PV" "AMPA" 1.0
+run_sweep "L5"   "SOM" "AMPA" 1.0
+
+
+run_sweep "L6"   "VIP" "AMPA" 1.0
+run_sweep "L6"   "E" "AMPA" 1.0
+run_sweep "L6"   "PV" "AMPA" 1.0
+run_sweep "L6"   "SOM" "AMPA" 1.0
+
+
+
+
 echo "======================================" | tee -a "$BATCH_LOG"
 echo "Batch run completed at $(date)" | tee -a "$BATCH_LOG"
 echo "======================================" | tee -a "$BATCH_LOG"
 echo "" | tee -a "$BATCH_LOG"
-echo "Summary log: $BATCH_LOG"
-echo "Results in:  $SAVE_DIR"
-echo "Run logs in: $LOG_DIR"
+echo "Summary log saved to: $BATCH_LOG"
+echo ""
+echo "Individual run logs available in: $LOG_DIR"
+echo ""
