@@ -14,11 +14,11 @@ plt.rcParams.update({
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("Paired")
 
-base_path = "results/trials_01_04" # change here the path to your saved trials
+base_path = "results/trials_01_04_3" # change here the path to your saved trials
 
 
 
-n_trials = 30
+n_trials = 18
 all_trials = []
 
 for trial_idx in range(n_trials):

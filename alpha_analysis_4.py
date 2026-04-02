@@ -47,8 +47,8 @@ plt.rcParams.update({
 # ============================================================
 # CONFIG — EDIT THESE
 # ============================================================
-base_path = "results/trials_01_04"
-n_trials = 61
+base_path = "results/trials_01_04_3"
+n_trials = 100
 fs = 10000
 
 alpha_band = (7, 14)
@@ -1088,6 +1088,219 @@ def analysis_summary(all_trials, alpha_changes, good_mask):
 
 
 # ============================================================
+# ANALYSIS 9: METADATA PARAMETERS → PRE-STIM ALPHA POWER
+# ============================================================
+def analysis_metadata_vs_alpha(all_trials, alpha_changes, good_mask):
+    """
+    Which network parameters (synapse counts, intrinsic params, delays,
+    initial membrane voltage) predict pre-stimulus alpha power per layer?
+
+    Loads metadata from each trial's .npz and correlates every scalar
+    parameter with each layer's pre-stimulus alpha power and with the
+    overall mean alpha change.
+    """
+    from scipy.stats import spearmanr  # noqa: E402
+
+    layer_defs = {
+        'L6':   L6_channels,
+        'L5':   L5_channels,
+        'L4C':  L4C_channels,
+        'L4AB': L4AB_channels,
+        'L23':  L23_channels,
+    }
+
+    # --- 1. Compute per-layer pre-stim alpha power for each trial ---
+    layer_alpha = {ln: [] for ln in layer_defs}
+    for trial in all_trials:
+        bp   = trial['bipolar_lfp']
+        t    = trial['time']
+        stim = trial['stim_onset_ms']
+        n_ch = bp.shape[0]
+        pre_mask = (t >= stim - pre_window_ms) & (t < stim)
+
+        for ln, chs in layer_defs.items():
+            ch_a = []
+            for ch in chs:
+                if ch < n_ch:
+                    ch_a.append(band_power(detrend(bp[ch][pre_mask]),
+                                           *alpha_band, fs))
+            layer_alpha[ln].append(np.mean(ch_a) if ch_a else np.nan)
+
+    for ln in layer_alpha:
+        layer_alpha[ln] = np.array(layer_alpha[ln])
+
+    # --- 2. Extract all scalar metadata parameters per trial ---
+    param_matrix = []   # will be (n_trials, n_params)
+
+    for trial in all_trials:
+        fname = f"{base_path}/trial_{trial['trial_idx']:03d}.npz"
+        data = np.load(fname, allow_pickle=True)
+        meta = data['metadata'].item()
+
+        row = {}
+
+        # Synapse counts
+        for k, v in meta['synapse_counts'].items():
+            row[f'syn_{k}'] = v
+
+        # Mean delays
+        for k, v in meta['synapse_mean_delay_ms'].items():
+            row[f'delay_{k}'] = v
+
+        # Initial membrane voltage
+        for k, v in meta['initial_v_mean_mV'].items():
+            row[f'Vinit_{k}'] = v
+
+        # Intrinsic params (means, stds, and CV)
+        for pop, params in meta['intrinsic_params'].items():
+            for pname, pval in params.items():
+                row[f'{pop}_{pname}'] = pval
+            # Add coefficient of variation for each param
+            for base in ['C', 'gL', 'tauw', 'b', 'a', 'EL']:
+                mn = params.get(f'{base}_mean', 0)
+                sd = params.get(f'{base}_std', 0)
+                if abs(mn) > 1e-15:
+                    row[f'{pop}_{base}_cv'] = sd / abs(mn)
+                else:
+                    row[f'{pop}_{base}_cv'] = 0.0
+
+        param_matrix.append(row)
+
+    # Build aligned arrays
+    if not param_matrix:
+        print("  No metadata found.")
+        return
+
+    all_param_names = list(param_matrix[0].keys())
+    param_arr = np.array([[row[k] for k in all_param_names]
+                          for row in param_matrix])
+
+    # --- 3. Correlate each parameter with each layer's alpha + overall ---
+    targets = dict(layer_alpha)
+    targets['mean_alpha_change'] = alpha_changes
+
+    # Collect results per target
+    for target_name, target_vals in targets.items():
+        results = []
+        valid = ~np.isnan(target_vals)
+        tv = target_vals[valid]
+
+        for j, pname in enumerate(all_param_names):
+            pv = param_arr[valid, j]
+            # Skip if no variance
+            if np.std(pv) < 1e-15:
+                continue
+            r, p = pearsonr(pv, tv)
+            rho, p_sp = spearmanr(pv, tv)
+            results.append((pname, r, p, rho, p_sp))
+
+        # Sort by absolute Pearson r
+        results.sort(key=lambda x: abs(x[1]), reverse=True)
+
+        # Print top 20
+        label = (f'{target_name} pre-stim alpha power'
+                 if target_name != 'mean_alpha_change'
+                 else 'Mean alpha change (%)')
+        print(f"\n{'=' * 80}")
+        print(f"TOP METADATA PREDICTORS of {label}")
+        print(f"{'=' * 80}")
+        print(f"{'Parameter':<35s} {'r':>7s} {'p':>10s}   "
+              f"{'rho':>7s} {'p_sp':>10s}")
+        print("-" * 80)
+        for pname, r, p, rho, p_sp in results[:20]:
+            sig = '***' if p < 0.001 else '**' if p < 0.01 else '*' if p < 0.05 else ''
+            print(f"{pname:<35s} {r:+.3f}  {p:.6f} {sig:3s}  "
+                  f"{rho:+.3f}  {p_sp:.6f}")
+        print("-" * 80)
+
+        # Count significant
+        n_sig = sum(1 for _, _, p, _, _ in results if p < 0.05)
+        n_bonf = sum(1 for _, _, p, _, _ in results
+                     if p < 0.05 / len(results))
+        print(f"  {n_sig}/{len(results)} params significant (p<0.05), "
+              f"{n_bonf} survive Bonferroni correction")
+
+    # --- 4. Scatter plots for top predictors of L4AB alpha ---
+    l4ab_alpha = layer_alpha['L4AB']
+    valid = ~np.isnan(l4ab_alpha)
+
+    results_l4ab = []
+    for j, pname in enumerate(all_param_names):
+        pv = param_arr[valid, j]
+        if np.std(pv) < 1e-15:
+            continue
+        r, p = pearsonr(pv, l4ab_alpha[valid])
+        results_l4ab.append((pname, r, p, j))
+    results_l4ab.sort(key=lambda x: abs(x[1]), reverse=True)
+
+    top_n = min(12, len(results_l4ab))
+    n_cols = 4
+    n_rows = (top_n + n_cols - 1) // n_cols
+    fig, axes = plt.subplots(n_rows, n_cols,
+                             figsize=(5 * n_cols, 4 * n_rows))
+    axes = axes.flatten()
+
+    for i in range(top_n):
+        pname, r, p, j = results_l4ab[i]
+        ax = axes[i]
+        pv = param_arr[valid, j]
+        ax.scatter(pv, l4ab_alpha[valid],
+                   c=['green' if g else 'red' for g in good_mask[valid]],
+                   edgecolors='k', s=30, alpha=0.7)
+        ax.set_xlabel(pname, fontsize=8)
+        ax.set_ylabel('L4AB pre-stim alpha')
+        sig = '***' if p < 0.001 else '**' if p < 0.01 else '*' if p < 0.05 else ''
+        ax.set_title(f'r={r:+.3f}, p={p:.4f}{sig}', fontsize=9)
+
+    for i in range(top_n, len(axes)):
+        axes[i].set_visible(False)
+
+    fig.suptitle('Top Metadata Predictors of L4AB Pre-stim Alpha Power',
+                 fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    plt.savefig('broad_09_metadata_vs_alpha.png', dpi=150, bbox_inches='tight')
+    plt.show()
+
+    # --- 5. Same for mean alpha change ---
+    results_ac = []
+    for j, pname in enumerate(all_param_names):
+        pv = param_arr[:, j]
+        if np.std(pv) < 1e-15:
+            continue
+        r, p = pearsonr(pv, alpha_changes)
+        results_ac.append((pname, r, p, j))
+    results_ac.sort(key=lambda x: abs(x[1]), reverse=True)
+
+    top_n = min(12, len(results_ac))
+    n_rows = (top_n + n_cols - 1) // n_cols
+    fig, axes = plt.subplots(n_rows, n_cols,
+                             figsize=(5 * n_cols, 4 * n_rows))
+    axes = axes.flatten()
+
+    for i in range(top_n):
+        pname, r, p, j = results_ac[i]
+        ax = axes[i]
+        pv = param_arr[:, j]
+        ax.scatter(pv, alpha_changes,
+                   c=['green' if g else 'red' for g in good_mask],
+                   edgecolors='k', s=30, alpha=0.7)
+        ax.set_xlabel(pname, fontsize=8)
+        ax.set_ylabel('Mean alpha change (%)')
+        sig = '***' if p < 0.001 else '**' if p < 0.01 else '*' if p < 0.05 else ''
+        ax.set_title(f'r={r:+.3f}, p={p:.4f}{sig}', fontsize=9)
+
+    for i in range(top_n, len(axes)):
+        axes[i].set_visible(False)
+
+    fig.suptitle('Top Metadata Predictors of Mean Alpha Change',
+                 fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    plt.savefig('broad_10_metadata_vs_alpha_change.png', dpi=150,
+                bbox_inches='tight')
+    plt.show()
+
+
+# ============================================================
 # MAIN
 # ============================================================
 if __name__ == "__main__":
@@ -1141,5 +1354,10 @@ if __name__ == "__main__":
     print("ANALYSIS 8: Summary Dashboard")
     print("=" * 60)
     analysis_summary(all_trials, alpha_changes, good_mask)
+
+    print("\n" + "=" * 60)
+    print("ANALYSIS 9: Metadata Parameters → Pre-stim Alpha")
+    print("=" * 60)
+    analysis_metadata_vs_alpha(all_trials, alpha_changes, good_mask)
 
     print("\nAll broad alpha suppression analyses complete!")

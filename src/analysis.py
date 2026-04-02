@@ -99,6 +99,54 @@ def peak_frequency_track(f_hz, Sxx, f_gamma=(20, 80)):
     return peak_freq, peak_pow
 
 
+def record_trial_metadata(column):
+    """Record randomized parameters for each trial (synapse counts, intrinsic params, initial V).
+
+    Returns a lightweight dict with summary stats per projection and per-neuron intrinsic params.
+    """
+    metadata = {
+        'synapse_counts': {},
+        'synapse_mean_delay_ms': {},
+        'intrinsic_params': {},
+        'initial_v_mean_mV': {},
+    }
+
+    # Intra-layer synapses
+    for layer_name, layer in column.layers.items():
+        for syn_name, syn in layer.synapses.items():
+            key = f"{layer_name}_{syn_name}"
+            metadata['synapse_counts'][key] = len(syn)
+            if len(syn) > 0:
+                metadata['synapse_mean_delay_ms'][key] = float(np.mean(syn.delay / ms))
+
+        # Per-neuron intrinsic params (only summary stats to save space)
+        for pop_name, grp in layer.neuron_groups.items():
+            key = f"{layer_name}_{pop_name}"
+            metadata['intrinsic_params'][key] = {
+                'C_mean': float(np.mean(grp.C / pF)),
+                'C_std': float(np.std(grp.C / pF)),
+                'gL_mean': float(np.mean(grp.gL / nS)),
+                'gL_std': float(np.std(grp.gL / nS)),
+                'tauw_mean': float(np.mean(grp.tauw / ms)),
+                'tauw_std': float(np.std(grp.tauw / ms)),
+                'b_mean': float(np.mean(grp.b / pA)),
+                'b_std': float(np.std(grp.b / pA)),
+                'a_mean': float(np.mean(grp.a / nS)),
+                'a_std': float(np.std(grp.a / nS)),
+                'EL_mean': float(np.mean(grp.EL / mV)),
+                'EL_std': float(np.std(grp.EL / mV)),
+            }
+            metadata['initial_v_mean_mV'][key] = float(np.mean(grp.v / mV))
+
+    # Inter-layer synapses
+    for syn_name, syn in column.inter_layer_synapses.items():
+        metadata['synapse_counts'][syn_name] = len(syn)
+        if len(syn) > 0:
+            metadata['synapse_mean_delay_ms'][syn_name] = float(np.mean(syn.delay / ms))
+
+    return metadata
+
+
 def add_heterogeneity_to_layer(layer, config):
     for pop_name, neuron_group in layer.neuron_groups.items():
         n = len(neuron_group)

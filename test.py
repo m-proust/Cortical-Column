@@ -68,7 +68,7 @@ def plot_raster(spike_data, baseline_time, stimuli_time, layer_configs, figsize=
 baseline_time = 2000 # In ms, time during which to run the baseline simulation
 stimuli_time = 2000 # In ms, time during which to run the simulation after adding the stimuli
 
-fname = f"results/trials_28_03/trial_005.npz"
+fname = f"results/trials_01_04_3/trial_063.npz"
 data = np.load(fname, allow_pickle=True)
 
 trial_data = {
@@ -76,7 +76,6 @@ trial_data = {
     'time': data["time_array_ms"],
     'bipolar_lfp': data["bipolar_matrix"],
     'lfp_matrix': data["lfp_matrix"],
-    'csd': data["csd"],
     'rate_data': data["rate_data"].item() if data["rate_data"].size == 1 else data["rate_data"],
     'spike_data': data["spike_data"].item() if data["spike_data"].size == 1 else data["spike_data"],
     'baseline_ms': float(data["baseline_ms"]),

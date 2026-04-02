@@ -45,7 +45,7 @@ def main():
     
     L4C_E_grp = L4C.neuron_groups['E']
     N_stim_E = 30
-    stim_rate_E = 4*Hz  
+    stim_rate_E = 5*Hz  
     L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
                                   N=N_stim_E, 
                                   rate=stim_rate_E, 
@@ -54,7 +54,7 @@ def main():
     
     L4C_PV_grp = L4C.neuron_groups['PV']
     N_stim_PV = 30
-    stim_rate_PV = 4*Hz 
+    stim_rate_PV = 5*Hz 
     L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
                                N=N_stim_PV, 
                                rate=stim_rate_PV, 
