@@ -47,26 +47,26 @@ plt.rcParams.update({
 # ============================================================
 # CONFIG — EDIT THESE
 # ============================================================
-base_path = "results/trials_01_04_3"
-n_trials = 100
+base_path = "results/trials_02_04_3"
+n_trials = 50
 fs = 10000
 
-alpha_band = (7, 14)
+alpha_band = (1, 12)
 gamma_band = (30, 80)
 beta_band  = (15, 30)
 
-pre_window_ms  = 500
-post_window_ms = 500
-post_start_ms  = 200
+pre_window_ms  = 300
+post_window_ms = 300
+post_start_ms  = 300
 
 alpha_threshold = -10  # % change per layer to count as suppressed
 
 # ---- Channel assignments (bipolar, 0-indexed) ----
-L6_channels   = [0, 1, 2]
-L5_channels   = [3, 4]
+L6_channels   = [2,3]
+L5_channels   = [4]
 L4C_channels  = [5, 6]
 L4AB_channels = [7, 8]
-L23_channels  = [9, 10, 11, 12, 13, 14]
+L23_channels  = [9, 10, 11, 12, 13]
 
 # All layers used for broad classification
 LAYER_DEFS = {

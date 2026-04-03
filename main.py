@@ -146,9 +146,9 @@ def main():
                         time_array,
                         electrode_positions,
                         baseline_time=baseline_time,
-                        pre_stim_duration=300,
-                        post_stim_duration=300,
-                        transient_skip=300
+                        pre_stim_duration=500,
+                        post_stim_duration=500,
+                        transient_skip=200
                     )
 
     fig_power_bipolar = plot_bipolar_power_comparison_kernel(
@@ -157,9 +157,9 @@ def main():
                         channel_depths,
                         time_array,
                         baseline_time=baseline_time,
-                        pre_stim_duration=300,
-                        post_stim_duration=300,
-                        transient_skip=300
+                        pre_stim_duration=500,
+                        post_stim_duration=500,
+                        transient_skip=200
                     )
 
 

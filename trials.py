@@ -69,9 +69,9 @@ def run_single_trial(
 
 
    
-    
-   
     column.network.run(baseline_ms * ms)
+   
+    
     L4C = column.layers['L4C']
     cfg_L4C = CONFIG['layers']['L4C']
    
@@ -117,6 +117,7 @@ def run_single_trial(
 
     column.network.add(L6_E_stim, L6_PV_stim)
     column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
+    
 
 
     column.network.run(stimuli_ms * ms)
@@ -274,6 +275,6 @@ if __name__ == "__main__":
         baseline_ms=2000,
         stimuli_ms=2000,
         fs=10000,
-        save_dir="results/trials_01_04_3",
+        save_dir="results/trials_03_04_2",
         verbose=True,
     )

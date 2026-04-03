@@ -396,7 +396,7 @@ CONFIG = {
         'PV':  {'a': 0*nS, 'b': 0*pA, 'DeltaT': 0.5*mV,
                 'C': 38*pF, 'gL': 3.8*nS, 'tauw': 50*ms,  'EL': -68*mV},
         'SOM': {'a': 4*nS, 'b': 50*pA, 'DeltaT': 1.5*mV,
-                'C': 92*pF, 'gL': 4.3*nS, 'tauw': 200*ms, 'EL': -63*mV},
+                'C': 92*pF, 'gL': 4.3*nS, 'tauw': 180*ms, 'EL': -63*mV},
         'VIP': {'a': 2*nS, 'b': 40*pA, 'DeltaT': 2*mV,
                 'C': 70*pF, 'gL': 3.3*nS, 'tauw': 150*ms, 'EL': -61*mV},
     },

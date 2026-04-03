@@ -14,11 +14,11 @@ plt.rcParams.update({
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("Paired")
 
-base_path = "results/trials_01_04_3" # change here the path to your saved trials
+base_path = "results/trials_02_04_3" # change here the path to your saved trials
 
 
 
-n_trials = 18
+n_trials = 30
 all_trials = []
 
 for trial_idx in range(n_trials):
@@ -84,17 +84,17 @@ def pmtm(x, NW=2, nfft=None, fs=1.0):
 def plot_laminar_spectral_profile(all_trials, pre_window_ms=1000, post_window_ms=1000,
                                  post_start_ms=500,
                                  freq_range=(1, 100), log_freq=True, remove_mean=True,
-                                 do_detrend=True, fmax=100):
+                                 do_detrend=True, fmax=100, lfp_key='bipolar_lfp'):
 
 
 
-    fs = 10000 
-    n_channels = all_trials[0]['bipolar_lfp'].shape[0]
+    fs = 10000
+    n_channels = all_trials[0][lfp_key].shape[0]
     n_trials = len(all_trials)
 
     channel_depths = all_trials[0]['channel_depths']
 
-    if len(channel_depths) > n_channels:
+    if lfp_key == 'bipolar_lfp' and len(channel_depths) > n_channels:
         bipolar_depths = (channel_depths[:-1] + channel_depths[1:]) / 2
     else:
         bipolar_depths = channel_depths[:n_channels]
@@ -106,7 +106,7 @@ def plot_laminar_spectral_profile(all_trials, pre_window_ms=1000, post_window_ms
         pre_trials, post_trials = [], []
 
         for trial in all_trials:
-            lfp = trial['bipolar_lfp'][ch]
+            lfp = trial[lfp_key][ch]
             time = trial['time']
             stim = trial['stim_onset_ms']
 
@@ -214,7 +214,8 @@ def plot_laminar_spectral_profile(all_trials, pre_window_ms=1000, post_window_ms
         for ax in axes:
             ax.set_xscale('log')
 
-    plt.suptitle('Laminar Spectral Profile', fontsize=16)
+    title_suffix = ' (Bipolar)' if lfp_key == 'bipolar_lfp' else ' (LFP)'
+    plt.suptitle('Laminar Spectral Profile' + title_suffix, fontsize=16)
     plt.show()
 
     return f_plot, bipolar_depths, psd_pre_db, psd_post_db, pct_change
@@ -226,8 +227,21 @@ f_plot, depths, psd_pre, psd_post, psd_change = plot_laminar_spectral_profile(
     pre_window_ms=300,
     post_window_ms=300,
     post_start_ms=300,
-    freq_range=(1, 120),
+    freq_range=(0, 120),
     log_freq=False,
     remove_mean=True,
     do_detrend=True,
+    lfp_key='bipolar_lfp',
+)
+
+f_plot2, depths2, psd_pre2, psd_post2, psd_change2 = plot_laminar_spectral_profile(
+    all_trials,
+    pre_window_ms=300,
+    post_window_ms=300,
+    post_start_ms=300,
+    freq_range=(0, 120),
+    log_freq=False,
+    remove_mean=True,
+    do_detrend=True,
+    lfp_key='lfp_matrix',
 )
