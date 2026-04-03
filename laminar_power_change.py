@@ -18,7 +18,7 @@ base_path = "results/trials_02_04_3" # change here the path to your saved trials
 
 
 
-n_trials = 30
+n_trials = 50
 all_trials = []
 
 for trial_idx in range(n_trials):
