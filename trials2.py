@@ -1,3 +1,12 @@
+"""
+trials2.py — Fixed-network trials with input-only variation.
+
+Uses the best seed from trials_05_04 (trial 46, seed 58925) to build
+the *same* network (connectivity + heterogeneity), then varies only
+the Poisson stimulus realisation across trials. This mimics repeated
+presentations of the same stimulus to one brain.
+"""
+
 import os
 import shutil
 import numpy as np
@@ -15,7 +24,7 @@ CONFIG_FILES = [
     "config/conductances_NMDA2_alpha_v2.csv",
     "config/connection_probabilities2.csv",
     "main.py",
-    "trials.py",
+    "trials2.py",
 ]
 
 
@@ -36,18 +45,21 @@ def save_config_snapshot(save_dir, base_dir=None):
 def run_single_trial(
     config,
     trial_id=0,
-    base_seed=None,
-    baseline_ms=3000,
-    stimuli_ms=3000,
+    network_seed=58925,
+    baseline_ms=2000,
+    stimuli_ms=2000,
     fs=10000,
     verbose=True,
 ):
-    if base_seed is None:
-        base_seed = config['simulation']['RANDOM_SEED']
+    """
+    Build the network with a fixed seed (same connectivity & heterogeneity
+    every time), run baseline, then re-seed the RNG before the stimulus
+    phase so that only the Poisson input varies across trials.
+    """
 
-    trial_seed = int(base_seed + trial_id)
-    np.random.seed(trial_seed)
-    b2.seed(trial_seed)
+    # ── Fixed network: always use the same seed for construction ──
+    np.random.seed(network_seed)
+    b2.seed(network_seed)
 
     b2.start_scope()
     b2.defaultclock.dt = config['simulation']['DT']
@@ -55,76 +67,75 @@ def run_single_trial(
     total_time = baseline_ms + stimuli_ms
 
     if verbose:
-        print(f"\n=== Running trial {trial_id} with seed {trial_seed} ===")
+        print(f"\n=== Trial {trial_id}  |  network seed {network_seed}  |  stim seed {network_seed + 1000 + trial_id} ===")
         print("Creating cortical column...")
 
     column = CorticalColumn(column_id=0, config=config)
     for layer_name, layer in column.layers.items():
-        add_heterogeneity_to_layer(layer, CONFIG) # optional
+        add_heterogeneity_to_layer(layer, CONFIG)
 
     all_monitors = column.get_all_monitors()
-
     w_ext_AMPA = config['synapses']['Q']['EXT_AMPA']
 
-
-
-   
+    # ── Baseline (same seed → same Poisson baseline every trial) ──
     column.network.run(baseline_ms * ms)
-   
-    
+
+    # ── Re-seed before stimulus so only the input varies ──
+    stim_seed = int(network_seed + 1000 + trial_id)
+    np.random.seed(stim_seed)
+    b2.seed(stim_seed)
+
+    if verbose:
+        print(f"  Stimulus phase with stim_seed {stim_seed}")
+
+    # ── Stimulus with small rate jitter (~10%) to mimic trial-to-trial
+    #    variability in LGN drive (contrast fluctuations, eye movements) ──
+    jitter = lambda base_rate: base_rate * (1 + np.random.uniform(-0.1, 0.1))
+
     L4C = column.layers['L4C']
-    cfg_L4C = CONFIG['layers']['L4C']
-   
-    
+
     L4C_E_grp = L4C.neuron_groups['E']
     N_stim_E = 30
-    stim_rate_E = 4*Hz  
-    L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
-                                  N=N_stim_E, 
-                                  rate=stim_rate_E, 
-                                  weight=w_ext_AMPA)  
-    
-    
+    stim_rate_E = jitter(4*Hz)
+    L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA',
+                                  N=N_stim_E,
+                                  rate=stim_rate_E,
+                                  weight=w_ext_AMPA)
+
     L4C_PV_grp = L4C.neuron_groups['PV']
     N_stim_PV = 30
-    stim_rate_PV = 4*Hz 
-    L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
-                               N=N_stim_PV, 
-                               rate=stim_rate_PV, 
-                               weight=w_ext_AMPA*2.5)  
-    
-    
+    stim_rate_PV = jitter(4*Hz)
+    L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA',
+                               N=N_stim_PV,
+                               rate=stim_rate_PV,
+                               weight=w_ext_AMPA*2.5)
+
     L6 = column.layers['L6']
-    cfg_L6 = CONFIG['layers']['L6']
     L6_PV_grp = L6.neuron_groups['PV']
     N_stim_L6_PV = 10
-    stim_rate_L6_PV = 5*Hz  
-    
+    stim_rate_L6_PV = jitter(5*Hz)
     L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
-                             N=N_stim_L6_PV, 
-                             rate=stim_rate_L6_PV, 
-                             weight=w_ext_AMPA)
+                              N=N_stim_L6_PV,
+                              rate=stim_rate_L6_PV,
+                              weight=w_ext_AMPA)
+
     L6_E_grp = L6.neuron_groups['E']
     N_stim_L6_E = 10
-    stim_rate_L6_E = 5*Hz  
-    
+    stim_rate_L6_E = jitter(5*Hz)
     L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
-                             N=N_stim_L6_E, 
-                             rate=stim_rate_L6_E, 
+                             N=N_stim_L6_E,
+                             rate=stim_rate_L6_E,
                              weight=w_ext_AMPA*2.5)
-
-
 
     column.network.add(L6_E_stim, L6_PV_stim)
     column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
-    
-
 
     column.network.run(stimuli_ms * ms)
 
     if verbose:
         print("Simulation complete")
 
+    # ── Collect results (identical to trials.py) ──
     spike_monitors = {}
     state_monitors = {}
     rate_monitors = {}
@@ -150,8 +161,6 @@ def run_single_trial(
         sim_duration_ms=total_time
     )
 
-
-
     if verbose:
         print("Computing bipolar LFP...")
 
@@ -169,7 +178,6 @@ def run_single_trial(
                 "spike_indices": np.array(mon.i),
             }
 
-    # E population smooth rate as LFP proxy (1ms Gaussian window)
     lfp_full = {}
     for layer_name, layer_rate_mons in rate_monitors.items():
         e_rate_mon = layer_rate_mons.get('E_rate')
@@ -191,9 +199,14 @@ def run_single_trial(
                 "rate_hz": r_hz,
             }
 
+    n_elec = len(lfp_signals)
+    lfp_matrix = np.vstack([lfp_signals[i] for i in range(n_elec)])
+    bipolar_matrix = np.vstack([bipolar_signals[i] for i in range(len(bipolar_signals))])
+
     data = {
         "trial_id": trial_id,
-        "seed": trial_seed,
+        "network_seed": network_seed,
+        "stim_seed": stim_seed,
         "time_array_ms": np.array(time_array),
         "electrode_positions": np.array(electrode_positions),
         "channel_labels": np.array(channel_labels, dtype=object),
@@ -201,80 +214,58 @@ def run_single_trial(
         "rate_data": rate_data,
         "spike_data": spike_data,
         "lfp_full": lfp_full,
+        "lfp_matrix": lfp_matrix,
+        "bipolar_matrix": bipolar_matrix,
         "baseline_ms": baseline_ms,
         "post_ms": stimuli_ms,
         "stim_onset_ms": baseline_ms,
     }
-
-    n_elec = len(lfp_signals)
-    lfp_matrix = np.vstack([lfp_signals[i] for i in range(n_elec)])
-    bipolar_matrix = np.vstack([bipolar_signals[i] for i in range(len(bipolar_signals))])
-
-    data["lfp_matrix"] = lfp_matrix
-    data["bipolar_matrix"] = bipolar_matrix
 
     if verbose:
         print(f"Trial {trial_id} finished.\n")
 
     return data
 
+
 def run_multiple_trials(
     config,
-    n_trials=10,
-    base_seed=None,
-    baseline_ms=3000,
-    stimuli_ms=3000,
+    n_trials=20,
+    network_seed=58925,
+    baseline_ms=2000,
+    stimuli_ms=2000,
     fs=10000,
-    save_dir="results/trials",
+    save_dir="results/trials2_05_04",
     verbose=True,
 ):
-    if base_seed is None:
-        base_seed = config['simulation']['RANDOM_SEED']
-
     os.makedirs(save_dir, exist_ok=True)
     save_config_snapshot(save_dir)
 
-    for trial_id in range(32,32+n_trials):
+    for trial_id in range(n_trials):
         data = run_single_trial(
             config=config,
             trial_id=trial_id,
-            base_seed=base_seed,
+            network_seed=network_seed,
             baseline_ms=baseline_ms,
             stimuli_ms=stimuli_ms,
             fs=fs,
             verbose=verbose,
         )
 
-        save_dict = {
-            "trial_id": data["trial_id"],
-            "seed": data["seed"],
-            "time_array_ms": data["time_array_ms"],
-            "electrode_positions": data["electrode_positions"],
-            "lfp_matrix": data["lfp_matrix"],
-            "bipolar_matrix": data["bipolar_matrix"],
-            "channel_labels": data["channel_labels"],
-            "channel_depths": data["channel_depths"],
-            "rate_data": data["rate_data"],
-            "spike_data": data["spike_data"],
-            "lfp_full": data["lfp_full"],
-            "baseline_ms": data["baseline_ms"],
-            "post_ms": data["post_ms"],
-            "stim_onset_ms": data["stim_onset_ms"],
-        }
-
         fname = os.path.join(save_dir, f"trial_{trial_id:03d}.npz")
-        np.savez_compressed(fname, **save_dict)
+        np.savez_compressed(fname, **data)
 
         if verbose:
             print(f"Saved trial {trial_id} to {fname}")
 
+
 if __name__ == "__main__":
     run_multiple_trials(
         CONFIG,
-        n_trials=68,
+        n_trials=50,
+        network_seed=58925,
         baseline_ms=2000,
         stimuli_ms=2000,
         fs=10000,
-        save_dir="results/trials_05_04",
+        save_dir="results/trials2_05_04",
         verbose=True,
     )

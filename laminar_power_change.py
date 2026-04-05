@@ -14,11 +14,11 @@ plt.rcParams.update({
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("Paired")
 
-base_path = "results/trials_03_04_3" # change here the path to your saved trials
+base_path = "results/trials_05_04" # change here the path to your saved trials
 
 
 
-n_trials = 40
+n_trials = 50
 all_trials = []
 
 for trial_idx in range(n_trials):
@@ -26,7 +26,7 @@ for trial_idx in range(n_trials):
     data = np.load(fname, allow_pickle=True)
 
     trial_data = {
-        'seed' : data["seed"],
+        # 'seed' : data["seed"],
         'time': data["time_array_ms"],
         'bipolar_lfp': data["bipolar_matrix"],
         'lfp_matrix': data["lfp_matrix"],
@@ -226,7 +226,7 @@ f_plot, depths, psd_pre, psd_post, psd_change = plot_laminar_spectral_profile(
     all_trials,
     pre_window_ms=300,
     post_window_ms=300,
-    post_start_ms=300,
+    post_start_ms=200,
     freq_range=(0, 120),
     log_freq=False,
     remove_mean=True,
@@ -238,7 +238,7 @@ f_plot2, depths2, psd_pre2, psd_post2, psd_change2 = plot_laminar_spectral_profi
     all_trials,
     pre_window_ms=300,
     post_window_ms=300,
-    post_start_ms=300,
+    post_start_ms=200,
     freq_range=(0, 120),
     log_freq=False,
     remove_mean=True,

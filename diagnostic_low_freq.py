@@ -11,8 +11,8 @@ from pathlib import Path
 from scipy.signal import welch, detrend, decimate
 
 # == CONFIG ===================================================================
-BASE_PATH = "results/trials_03_04_3"
-N_TRIALS = 27
+BASE_PATH = "results/trials_05_04"
+N_TRIALS = 25
 
 # spectral windows (ms)
 PRE_WINDOW_MS = 1000
