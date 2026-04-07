@@ -85,7 +85,7 @@ _LAYER_CONFIGS = {
         'poisson_inputs': {
             'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 24},
             'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},         
-            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 18},
+            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 13},
             'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 15},
             # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
             # 'SOM_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 10},
@@ -201,7 +201,7 @@ CONFIG = {
     'simulation': {
         'SIMULATION_TIME': 2000*ms,
         'DT': 0.1*ms,
-        'RANDOM_SEED': 58925,
+        'RANDOM_SEED': 58879,
     },
 
     'models': {
