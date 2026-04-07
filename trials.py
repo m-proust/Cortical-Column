@@ -78,7 +78,7 @@ def run_single_trial(
     
     L4C_E_grp = L4C.neuron_groups['E']
     N_stim_E = 30
-    stim_rate_E = 4*Hz  
+    stim_rate_E = 5*Hz
     L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
                                   N=N_stim_E, 
                                   rate=stim_rate_E, 
@@ -86,8 +86,8 @@ def run_single_trial(
     
     
     L4C_PV_grp = L4C.neuron_groups['PV']
-    N_stim_PV = 30
-    stim_rate_PV = 4*Hz 
+    N_stim_PV = 40
+    stim_rate_PV = 6*Hz 
     L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
                                N=N_stim_PV, 
                                rate=stim_rate_PV, 
@@ -103,7 +103,7 @@ def run_single_trial(
     L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
                              N=N_stim_L6_PV, 
                              rate=stim_rate_L6_PV, 
-                             weight=w_ext_AMPA)
+                             weight=w_ext_AMPA*1.5)
     L6_E_grp = L6.neuron_groups['E']
     N_stim_L6_E = 10
     stim_rate_L6_E = 5*Hz  
@@ -111,7 +111,7 @@ def run_single_trial(
     L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
                              N=N_stim_L6_E, 
                              rate=stim_rate_L6_E, 
-                             weight=w_ext_AMPA*2.5)
+                             weight=w_ext_AMPA*1.5)
 
 
 
@@ -234,7 +234,7 @@ def run_multiple_trials(
     os.makedirs(save_dir, exist_ok=True)
     save_config_snapshot(save_dir)
 
-    for trial_id in range(32,32+n_trials):
+    for trial_id in range(n_trials):
         data = run_single_trial(
             config=config,
             trial_id=trial_id,
@@ -271,10 +271,10 @@ def run_multiple_trials(
 if __name__ == "__main__":
     run_multiple_trials(
         CONFIG,
-        n_trials=68,
+        n_trials=50,
         baseline_ms=2000,
         stimuli_ms=2000,
         fs=10000,
-        save_dir="results/trials_05_04",
+        save_dir="results/trials_07_04",
         verbose=True,
     )

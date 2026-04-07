@@ -66,8 +66,11 @@ def run_single_trial(
 
     total_time = baseline_ms + stimuli_ms
 
+    baseline_seed = int(network_seed + 2 * trial_id)
+    stim_seed = int(network_seed + 2 * trial_id + 1)
+
     if verbose:
-        print(f"\n=== Trial {trial_id}  |  network seed {network_seed}  |  stim seed {network_seed + 1000 + trial_id} ===")
+        print(f"\n=== Trial {trial_id}  |  network seed {network_seed}  |  baseline seed {baseline_seed}  |  stim seed {stim_seed} ===")
         print("Creating cortical column...")
 
     column = CorticalColumn(column_id=0, config=config)
@@ -77,11 +80,14 @@ def run_single_trial(
     all_monitors = column.get_all_monitors()
     w_ext_AMPA = config['synapses']['Q']['EXT_AMPA']
 
-    # ── Baseline (same seed → same Poisson baseline every trial) ──
+    # ── Re-seed before baseline so ongoing activity differs per trial ──
+    # Same brain, different spontaneous state at stimulus onset
+    np.random.seed(baseline_seed)
+    b2.seed(baseline_seed)
+
     column.network.run(baseline_ms * ms)
 
-    # ── Re-seed before stimulus so only the input varies ──
-    stim_seed = int(network_seed + 1000 + trial_id)
+    # ── Re-seed before stimulus so input noise also varies ──
     np.random.seed(stim_seed)
     b2.seed(stim_seed)
 
@@ -117,15 +123,15 @@ def run_single_trial(
 
     L6_E_grp = L6.neuron_groups['E']
     N_stim_L6_E = 10
-    stim_rate_L6_E = jitter(3*Hz)
+    stim_rate_L6_E = jitter(5*Hz)
     L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
                              N=N_stim_L6_E,
                              rate=stim_rate_L6_E,
-                             weight=w_ext_AMPA)
+                             weight=w_ext_AMPA*1.5)
 
     L6_PV_grp = L6.neuron_groups['PV']
     N_stim_L6_PV = 10
-    stim_rate_L6_PV = jitter(3*Hz)
+    stim_rate_L6_PV = jitter(5*Hz)
     L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
                               N=N_stim_L6_PV,
                               rate=stim_rate_L6_PV,
@@ -210,7 +216,14 @@ def run_single_trial(
     data = {
         "trial_id": trial_id,
         "network_seed": network_seed,
+        "baseline_seed": baseline_seed,
         "stim_seed": stim_seed,
+        "stim_rates": {
+            "L4C_E": float(stim_rate_E / Hz),
+            "L4C_PV": float(stim_rate_PV / Hz),
+            "L6_E": float(stim_rate_L6_E / Hz),
+            "L6_PV": float(stim_rate_L6_PV / Hz),
+        },
         "time_array_ms": np.array(time_array),
         "electrode_positions": np.array(electrode_positions),
         "channel_labels": np.array(channel_labels, dtype=object),
@@ -265,11 +278,11 @@ def run_multiple_trials(
 if __name__ == "__main__":
     run_multiple_trials(
         CONFIG,
-        n_trials=50,
-        network_seed=58925,
+        n_trials=100,
+        network_seed=58883,  # from trials_06_04_2 trial 4
         baseline_ms=2000,
         stimuli_ms=2000,
         fs=10000,
-        save_dir="results/trials3_05_04",
+        save_dir="results/trials3_06_04_3",
         verbose=True,
     )

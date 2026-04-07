@@ -47,11 +47,11 @@ plt.rcParams.update({
 # ============================================================
 # CONFIG — EDIT THESE
 # ============================================================
-base_path = "results/trials_02_04_3"
-n_trials = 50
+base_path = "results/trials_06_04_2"
+n_trials = 23
 fs = 10000
 
-alpha_band = (1, 12)
+alpha_band = (7, 14)
 gamma_band = (30, 80)
 beta_band  = (15, 30)
 

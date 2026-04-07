@@ -14,11 +14,13 @@ plt.rcParams.update({
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("Paired")
 
-base_path = "results/trials_05_04" # change here the path to your saved trials
+base_path = "results/trials3_06_04_3" # change here the path to your saved trials
 
+# ── Manually selected good trials (by visual inspection) ──
+GOOD_TRIALS = [0,3,4,5,8,10,12,14,15,16,18,20,23,27,29,31,32,35,36,38,39,40,
+               50,54,56,59,60,69,70,77,83,91,94,95,97,98]   # e.g. [4, 7, 12]
 
-
-n_trials = 50
+n_trials = 100
 all_trials = []
 
 for trial_idx in range(n_trials):
@@ -197,7 +199,7 @@ def plot_laminar_spectral_profile(all_trials, pre_window_ms=1000, post_window_ms
     plt.colorbar(im2, ax=axes[1], label='Power (dB)')
 
     vmin_pct = -100
-    vmax_pct = 700
+    vmax_pct = 500
     norm = TwoSlopeNorm(vmin=vmin_pct, vcenter=0, vmax=vmax_pct)
 
 
@@ -208,7 +210,7 @@ def plot_laminar_spectral_profile(all_trials, pre_window_ms=1000, post_window_ms
     axes[2].set_ylabel('Channel')
 
     cbar = plt.colorbar(im3, ax=axes[2], label='% Change')
-    cbar.set_ticks([-100, -50, 0, 100, 250, 400, 500, 600, 700])
+    cbar.set_ticks([-100, -50, 0, 100, 250])
 
     if log_freq:
         for ax in axes:
@@ -245,3 +247,34 @@ f_plot2, depths2, psd_pre2, psd_post2, psd_change2 = plot_laminar_spectral_profi
     do_detrend=True,
     lfp_key='lfp_matrix',
 )
+
+# ── Good trials only ──
+if GOOD_TRIALS:
+    good_trials = [all_trials[i] for i in GOOD_TRIALS if i < len(all_trials)]
+    print(f"\n--- Good trials only ({len(good_trials)} trials: {GOOD_TRIALS}) ---")
+
+    f_good, d_good, pre_good, post_good, chg_good = plot_laminar_spectral_profile(
+        good_trials,
+        pre_window_ms=300,
+        post_window_ms=300,
+        post_start_ms=200,
+        freq_range=(0, 120),
+        log_freq=False,
+        remove_mean=True,
+        do_detrend=True,
+        lfp_key='bipolar_lfp',
+    )
+
+    f_good2, d_good2, pre_good2, post_good2, chg_good2 = plot_laminar_spectral_profile(
+        good_trials,
+        pre_window_ms=300,
+        post_window_ms=300,
+        post_start_ms=200,
+        freq_range=(0, 120),
+        log_freq=False,
+        remove_mean=True,
+        do_detrend=True,
+        lfp_key='lfp_matrix',
+    )
+else:
+    print("\nGOOD_TRIALS is empty — skipping good-trials-only plot.")
