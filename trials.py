@@ -78,7 +78,7 @@ def run_single_trial(
     
     L4C_E_grp = L4C.neuron_groups['E']
     N_stim_E = 30
-    stim_rate_E = 4*Hz  
+    stim_rate_E = 5*Hz  
     L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
                                   N=N_stim_E, 
                                   rate=stim_rate_E, 
@@ -86,8 +86,8 @@ def run_single_trial(
     
     
     L4C_PV_grp = L4C.neuron_groups['PV']
-    N_stim_PV = 30
-    stim_rate_PV = 4*Hz 
+    N_stim_PV = 40
+    stim_rate_PV = 7*Hz 
     L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
                                N=N_stim_PV, 
                                rate=stim_rate_PV, 
@@ -98,7 +98,7 @@ def run_single_trial(
     cfg_L6 = CONFIG['layers']['L6']
     L6_PV_grp = L6.neuron_groups['PV']
     N_stim_L6_PV = 10
-    stim_rate_L6_PV = 5*Hz  
+    stim_rate_L6_PV = 6*Hz  
     
     L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
                              N=N_stim_L6_PV, 
@@ -275,6 +275,6 @@ if __name__ == "__main__":
         baseline_ms=2000,
         stimuli_ms=2000,
         fs=10000,
-        save_dir="results/trials_06_04",
+        save_dir="results/trials_08_04",
         verbose=True,
     )

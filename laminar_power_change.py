@@ -14,13 +14,12 @@ plt.rcParams.update({
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("Paired")
 
-base_path = "results/trials_07_04" # change here the path to your saved trials
+base_path = "results/trials_08_04" # change here the path to your saved trials
 
-# ── Manually selected good trials (by visual inspection) ──
-GOOD_TRIALS = [0,3,4,5,8,10,12,14,15,16,18,20,23,27,29,31,32,35,36,38,39,40,
-               50,54,56,59,60,69,70,77,83,91,94,95,97,98]   # e.g. [4, 7, 12]
+GOOD_TRIALS = [1,12,14,16,17,18,21,22,23,25,27,32,39,40,43,44,45,46,48,
+               50,52,56,57,59,61,62,68,69,75,78,79,80,81,82,90,94,95,99]  
 
-n_trials = 5
+n_trials = 40
 all_trials = []
 
 for trial_idx in range(n_trials):
@@ -228,7 +227,7 @@ f_plot, depths, psd_pre, psd_post, psd_change = plot_laminar_spectral_profile(
     all_trials,
     pre_window_ms=300,
     post_window_ms=300,
-    post_start_ms=200,
+    post_start_ms=1000,
     freq_range=(0, 120),
     log_freq=False,
     remove_mean=True,

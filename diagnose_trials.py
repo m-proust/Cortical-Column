@@ -24,12 +24,12 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # ═══════════════════════════════════════════════════════════════
-BASE_PATH = "results/trials3_06_04_3"
+BASE_PATH = "results/trials3_07_04"
 N_TRIALS = 100
 FS = 10000
 
-GOOD_TRIALS = [0,3,4,5,8,10,12,14,15,16,18,20,23,27,29,31,32,35,36,38,39,40,
-               50,54,56,59,60,69,70,77,83,91,94,95,97,98]
+GOOD_TRIALS = [1,12,14,16,17,18,21,22,23,25,27,32,39,40,43,44,45,46,48,
+               50,52,56,57,59,61,62,68,69,75,78,79,80,81,82,90,94,95,99]  
 BAD_TRIALS = [i for i in range(N_TRIALS) if i not in GOOD_TRIALS]
 
 SAVE_DIR = "results/trial_diagnostics_v2"

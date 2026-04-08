@@ -102,7 +102,7 @@ def run_single_trial(
     L4C = column.layers['L4C']
 
     L4C_E_grp = L4C.neuron_groups['E']
-    N_stim_E = 30
+    N_stim_E = 25
     stim_rate_E = jitter(4*Hz)
     L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA',
                                   N=N_stim_E,
@@ -283,6 +283,6 @@ if __name__ == "__main__":
         baseline_ms=2000,
         stimuli_ms=2000,
         fs=10000,
-        save_dir="results/trials3_06_04_3",
+        save_dir="results/trials3_07_04",
         verbose=True,
     )
