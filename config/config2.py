@@ -83,10 +83,10 @@ _LAYER_CONFIGS = {
         #     'E': {'b': 80*pA, 'tauw': 150*ms}, 
         # },
         'poisson_inputs': {
-            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 24},
+            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 34},
             'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},         
             'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 17},
-            'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 17},
+            'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
             # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
             # 'SOM_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 10},
             # 'VIP_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 20},

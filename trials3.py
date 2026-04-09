@@ -102,16 +102,16 @@ def run_single_trial(
     L4C = column.layers['L4C']
 
     L4C_E_grp = L4C.neuron_groups['E']
-    N_stim_E = 25
-    stim_rate_E = jitter(4*Hz)
+    N_stim_E = 30
+    stim_rate_E = jitter(5*Hz)
     L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA',
                                   N=N_stim_E,
                                   rate=stim_rate_E,
                                   weight=w_ext_AMPA)
 
     L4C_PV_grp = L4C.neuron_groups['PV']
-    N_stim_PV = 30
-    stim_rate_PV = jitter(4*Hz)
+    N_stim_PV = 40
+    stim_rate_PV = jitter(7*Hz)
     L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA',
                                N=N_stim_PV,
                                rate=stim_rate_PV,
@@ -131,7 +131,7 @@ def run_single_trial(
 
     L6_PV_grp = L6.neuron_groups['PV']
     N_stim_L6_PV = 10
-    stim_rate_L6_PV = jitter(5*Hz)
+    stim_rate_L6_PV = jitter(6*Hz)
     L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
                               N=N_stim_L6_PV,
                               rate=stim_rate_L6_PV,
@@ -279,7 +279,7 @@ if __name__ == "__main__":
     run_multiple_trials(
         CONFIG,
         n_trials=100,
-        network_seed=58883,  # from trials_06_04_2 trial 4
+        network_seed=58880,  # from trials_09_04_2 trial 001
         baseline_ms=2000,
         stimuli_ms=2000,
         fs=10000,
