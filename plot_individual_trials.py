@@ -14,8 +14,8 @@ plt.rcParams.update({
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("Paired")
 
-base_path = "results/trials_09_04_2"
-output_dir = "results/trials_09_04_2/individual_plots"
+base_path = "results/trials_09_04"
+output_dir = "results/trials_09_04/individual_plots"
 os.makedirs(output_dir, exist_ok=True)
 
 n_trials = len([f for f in os.listdir(base_path) if f.startswith("trial_") and f.endswith(".npz")])

@@ -2,8 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.colors import TwoSlopeNorm
+from scipy import signal
+from scipy.signal import detrend
 from scipy.signal.windows import dpss
-from scipy.signal import detrend, welch
 import seaborn as sns
 
 
@@ -14,12 +15,12 @@ plt.rcParams.update({
 plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("Paired")
 
-base_path = "results/trials_09_04_2" # change here the path to your saved trials
+base_path = "results/trials3_09_04" # change here the path to your saved trials
 
 GOOD_TRIALS = [1,12,14,16,17,18,21,22,23,25,27,32,39,40,43,44,45,46,48,
                50,52,56,57,59,61,62,68,69,75,78,79,80,81,82,90,94,95,99]  
 
-n_trials = 20
+n_trials = 50
 all_trials = []
 
 for trial_idx in range(n_trials):
@@ -55,32 +56,31 @@ print(f"Sampling rate: ~{1000 / np.mean(np.diff(all_trials[0]['time'])):.0f} Hz"
 
 
 
-def pmtm(x, NW=2, nfft=None, fs=1.0):
-   
-    N = len(x)
+def multitaper_psd(data, fs, NW=2, nfft=None):
+
+    data_demeaned = data - np.mean(data)
 
     if nfft is None:
-        nfft = 2 ** int(np.ceil(np.log2(N)))
+        nfft = 2 ** int(np.ceil(np.log2(len(data_demeaned))))
 
     K = int(2 * NW - 1)
 
-    tapers, ratios = dpss(N, NW, K, return_ratios=True)
+    tapers = dpss(len(data_demeaned), NW, K)
 
-    psd_mt = np.zeros(nfft)
+    psds = []
+    for taper in tapers:
+        windowed = data_demeaned * taper
+        freqs, psd_single = signal.periodogram(
+            windowed,
+            fs=fs,
+            nfft=nfft,
+            scaling='density'
+        )
+        psds.append(psd_single)
 
-    for k in range(K):
-        x_tapered = x * tapers[k]
-        X = np.fft.fft(x_tapered, n=nfft)
-        psd_mt += ratios[k] * np.abs(X) ** 2
+    psd = np.mean(psds, axis=0)
 
-
-    psd_mt /= np.sum(ratios)
-    psd_mt /= fs 
-
-    f = np.fft.fftfreq(nfft, d=1/fs)
-    pos_mask = f >= 0
-
-    return f[pos_mask], psd_mt[pos_mask]
+    return freqs, psd
 
 def plot_laminar_spectral_profile(all_trials, pre_window_ms=1000, post_window_ms=1000,
                                  post_start_ms=500,
@@ -130,9 +130,9 @@ def plot_laminar_spectral_profile(all_trials, pre_window_ms=1000, post_window_ms
                 pre -= np.mean(pre)
                 post -= np.mean(post)
 
-            nperseg = min(len(pre), 100 * min(1024, len(pre) // 4))
-            f, psd_pre = welch(pre, fs=fs, nperseg=nperseg, window='hann')
-            _, psd_post = welch(post, fs=fs, nperseg=nperseg, window='hann')
+            nfft = 2 ** int(np.ceil(np.log2(min(len(pre), len(post)))))
+            f, psd_pre = multitaper_psd(pre, fs=fs, NW=2, nfft=nfft)
+            _, psd_post = multitaper_psd(post, fs=fs, NW=2, nfft=nfft)
 
             pre_trials.append(psd_pre)
             post_trials.append(psd_post)
@@ -225,9 +225,9 @@ def plot_laminar_spectral_profile(all_trials, pre_window_ms=1000, post_window_ms
 
 f_plot, depths, psd_pre, psd_post, psd_change = plot_laminar_spectral_profile(
     all_trials,
-    pre_window_ms=300,
-    post_window_ms=300,
-    post_start_ms=1000,
+    pre_window_ms=500,
+    post_window_ms=500,
+    post_start_ms=200,
     freq_range=(0, 120),
     log_freq=False,
     remove_mean=True,
@@ -237,8 +237,8 @@ f_plot, depths, psd_pre, psd_post, psd_change = plot_laminar_spectral_profile(
 
 f_plot2, depths2, psd_pre2, psd_post2, psd_change2 = plot_laminar_spectral_profile(
     all_trials,
-    pre_window_ms=300,
-    post_window_ms=300,
+    pre_window_ms=500,
+    post_window_ms=500,
     post_start_ms=200,
     freq_range=(0, 120),
     log_freq=False,
@@ -248,32 +248,32 @@ f_plot2, depths2, psd_pre2, psd_post2, psd_change2 = plot_laminar_spectral_profi
 )
 
 # ── Good trials only ──
-if GOOD_TRIALS:
-    good_trials = [all_trials[i] for i in GOOD_TRIALS if i < len(all_trials)]
-    print(f"\n--- Good trials only ({len(good_trials)} trials: {GOOD_TRIALS}) ---")
+# if GOOD_TRIALS:
+#     good_trials = [all_trials[i] for i in GOOD_TRIALS if i < len(all_trials)]
+#     print(f"\n--- Good trials only ({len(good_trials)} trials: {GOOD_TRIALS}) ---")
 
-    f_good, d_good, pre_good, post_good, chg_good = plot_laminar_spectral_profile(
-        good_trials,
-        pre_window_ms=300,
-        post_window_ms=300,
-        post_start_ms=200,
-        freq_range=(0, 120),
-        log_freq=False,
-        remove_mean=True,
-        do_detrend=True,
-        lfp_key='bipolar_lfp',
-    )
+#     f_good, d_good, pre_good, post_good, chg_good = plot_laminar_spectral_profile(
+#         good_trials,
+#         pre_window_ms=300,
+#         post_window_ms=300,
+#         post_start_ms=200,
+#         freq_range=(0, 120),
+#         log_freq=False,
+#         remove_mean=True,
+#         do_detrend=True,
+#         lfp_key='bipolar_lfp',
+#     )
 
-    f_good2, d_good2, pre_good2, post_good2, chg_good2 = plot_laminar_spectral_profile(
-        good_trials,
-        pre_window_ms=300,
-        post_window_ms=300,
-        post_start_ms=200,
-        freq_range=(0, 120),
-        log_freq=False,
-        remove_mean=True,
-        do_detrend=True,
-        lfp_key='lfp_matrix',
-    )
-else:
-    print("\nGOOD_TRIALS is empty — skipping good-trials-only plot.")
+#     f_good2, d_good2, pre_good2, post_good2, chg_good2 = plot_laminar_spectral_profile(
+#         good_trials,
+#         pre_window_ms=300,
+#         post_window_ms=300,
+#         post_start_ms=200,
+#         freq_range=(0, 120),
+#         log_freq=False,
+#         remove_mean=True,
+#         do_detrend=True,
+#         lfp_key='lfp_matrix',
+#     )
+# else:
+#     print("\nGOOD_TRIALS is empty — skipping good-trials-only plot.")

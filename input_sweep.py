@@ -4,7 +4,7 @@ import brian2 as b2
 from brian2 import *
 from config.config2 import CONFIG
 from src.column import CorticalColumn
-from src.analysis import calculate_lfp_kernel_method, compute_power_spectrum
+from src.analysis import calculate_lfp_kernel_method, compute_power_spectrum, add_heterogeneity_to_layer
 import copy
 import argparse
 
@@ -22,7 +22,7 @@ def run_single_rate(
 ):
 
     if base_seed is None:
-        base_seed = config['simulation']['RANDOM_SEED']
+        base_seed = 58925
 
     trial_seed = int(base_seed + trial_id)
     np.random.seed(trial_seed)
@@ -45,6 +45,8 @@ def run_single_rate(
         print("Creating cortical column...")
 
     column = CorticalColumn(column_id=0, config=config)
+    for layer_name, layer in column.layers.items():
+        add_heterogeneity_to_layer(layer, config)
     all_monitors = column.get_all_monitors()
 
     w_ext_AMPA = config['synapses']['Q']['EXT_AMPA']
@@ -104,14 +106,12 @@ def run_single_rate(
     electrode_positions = config['electrode_positions']
     total_sim_ms = baseline_ms + stim_ms
 
-    from lfp_mazzoni_method import calculate_lfp_mazzoni
-
-    lfp_signals, time_array = calculate_lfp_mazzoni(
+    lfp_signals, time_array = calculate_lfp_kernel_method(
         spike_monitors,
         neuron_groups,
         config['layers'],
         electrode_positions,
-        fs=fs,
+        dt_ms=1000.0 / fs,
         sim_duration_ms=total_sim_ms,
     )
 
@@ -176,7 +176,7 @@ def run_rate_sweep(
 ):
  
     if base_seed is None:
-        base_seed = config['simulation']['RANDOM_SEED']
+        base_seed = 58925
 
     os.makedirs(save_dir, exist_ok=True)
 
@@ -294,12 +294,12 @@ if __name__ == "__main__":
                         help='Maximum stimulation rate in Hz (default: 20)')
     parser.add_argument('--rate-step', type=float, default=1,
                         help='Step size for rate sweep in Hz (default: 1)')
-    parser.add_argument('--baseline-ms', type=float, default=1000,
-                        help='Baseline duration in ms (default: 1000)')
-    parser.add_argument('--stim-ms', type=float, default=1500,
-                        help='Stimulation duration in ms (default: 1500)')
-    parser.add_argument('--save-dir', type=str, default='results/input_sweeps2',
-                        help='Directory to save results (default: results/input_sweeps2)')
+    parser.add_argument('--baseline-ms', type=float, default=2000,
+                        help='Baseline duration in ms (default: 2000)')
+    parser.add_argument('--stim-ms', type=float, default=2500,
+                        help='Stimulation duration in ms (default: 2500)')
+    parser.add_argument('--save-dir', type=str, default='results/sweeps_10_04',
+                        help='Directory to save results (default: results/sweeps_10_04)')
     parser.add_argument('--quiet', action='store_true',
                         help='Suppress verbose output')
 

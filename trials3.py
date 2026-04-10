@@ -45,7 +45,7 @@ def save_config_snapshot(save_dir, base_dir=None):
 def run_single_trial(
     config,
     trial_id=0,
-    network_seed=58925,
+    network_seed=58880,
     baseline_ms=2000,
     stimuli_ms=2000,
     fs=10000,
@@ -66,8 +66,13 @@ def run_single_trial(
 
     total_time = baseline_ms + stimuli_ms
 
-    baseline_seed = int(network_seed + 2 * trial_id)
-    stim_seed = int(network_seed + 2 * trial_id + 1)
+    if trial_id == 0:
+        # Reproduce trials.py trial 001 exactly: single seed throughout
+        baseline_seed = network_seed
+        stim_seed = network_seed
+    else:
+        baseline_seed = int(network_seed + 2 * trial_id)
+        stim_seed = int(network_seed + 2 * trial_id + 1)
 
     if verbose:
         print(f"\n=== Trial {trial_id}  |  network seed {network_seed}  |  baseline seed {baseline_seed}  |  stim seed {stim_seed} ===")
@@ -81,60 +86,49 @@ def run_single_trial(
     w_ext_AMPA = config['synapses']['Q']['EXT_AMPA']
 
     # ── Re-seed before baseline so ongoing activity differs per trial ──
-    # Same brain, different spontaneous state at stimulus onset
-    np.random.seed(baseline_seed)
-    b2.seed(baseline_seed)
+    # For trial 0, skip reseeds to exactly reproduce trials.py behavior
+    if trial_id != 0:
+        np.random.seed(baseline_seed)
+        b2.seed(baseline_seed)
 
     column.network.run(baseline_ms * ms)
 
     # ── Re-seed before stimulus so input noise also varies ──
-    np.random.seed(stim_seed)
-    b2.seed(stim_seed)
+    if trial_id != 0:
+        np.random.seed(stim_seed)
+        b2.seed(stim_seed)
 
     if verbose:
         print(f"  Stimulus phase with stim_seed {stim_seed}")
-
-    # ── Stimulus with small rate jitter (~10%) to mimic trial-to-trial
-    #    variability in LGN drive (contrast fluctuations, eye movements) ──
-    jitter = lambda base_rate: base_rate * (1 + np.random.uniform(-0.1, 0.1))
 
     # ── L4C: bulk of feedforward drive ──
     L4C = column.layers['L4C']
 
     L4C_E_grp = L4C.neuron_groups['E']
-    N_stim_E = 30
-    stim_rate_E = jitter(5*Hz)
     L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA',
-                                  N=N_stim_E,
-                                  rate=stim_rate_E,
+                                  N=30,
+                                  rate=5*Hz,
                                   weight=w_ext_AMPA)
 
     L4C_PV_grp = L4C.neuron_groups['PV']
-    N_stim_PV = 40
-    stim_rate_PV = jitter(7*Hz)
     L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA',
-                               N=N_stim_PV,
-                               rate=stim_rate_PV,
+                               N=40,
+                               rate=7*Hz,
                                weight=w_ext_AMPA*2.5)
 
     # ── L6: weak collateral drive (~15% of L4C) ──
-    #    PV gets 2.5x weight (same rule as L4C), E gets 1x
     L6 = column.layers['L6']
 
     L6_E_grp = L6.neuron_groups['E']
-    N_stim_L6_E = 10
-    stim_rate_L6_E = jitter(5*Hz)
     L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
-                             N=N_stim_L6_E,
-                             rate=stim_rate_L6_E,
+                             N=10,
+                             rate=5*Hz,
                              weight=w_ext_AMPA*1.5)
 
     L6_PV_grp = L6.neuron_groups['PV']
-    N_stim_L6_PV = 10
-    stim_rate_L6_PV = jitter(6*Hz)
     L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
-                              N=N_stim_L6_PV,
-                              rate=stim_rate_L6_PV,
+                              N=10,
+                              rate=6*Hz,
                               weight=w_ext_AMPA*1.5)
 
     column.network.add(L6_E_stim, L6_PV_stim)
@@ -219,10 +213,10 @@ def run_single_trial(
         "baseline_seed": baseline_seed,
         "stim_seed": stim_seed,
         "stim_rates": {
-            "L4C_E": float(stim_rate_E / Hz),
-            "L4C_PV": float(stim_rate_PV / Hz),
-            "L6_E": float(stim_rate_L6_E / Hz),
-            "L6_PV": float(stim_rate_L6_PV / Hz),
+            "L4C_E": 5.0,
+            "L4C_PV": 7.0,
+            "L6_E": 5.0,
+            "L6_PV": 6.0,
         },
         "time_array_ms": np.array(time_array),
         "electrode_positions": np.array(electrode_positions),
@@ -247,7 +241,7 @@ def run_single_trial(
 def run_multiple_trials(
     config,
     n_trials=50,
-    network_seed=58925,
+    network_seed=58880,
     baseline_ms=2000,
     stimuli_ms=2000,
     fs=10000,
@@ -283,6 +277,6 @@ if __name__ == "__main__":
         baseline_ms=2000,
         stimuli_ms=2000,
         fs=10000,
-        save_dir="results/trials3_07_04",
+        save_dir="results/trials3_09_04",
         verbose=True,
     )

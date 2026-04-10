@@ -36,9 +36,9 @@ run_sweep() {
         --rate-min 0 \
         --rate-max 15 \
         --rate-step 1 \
-        --baseline-ms 1000 \
-        --stim-ms 1500 \
-        --save-dir "results/input_sweeps2" \
+        --baseline-ms 2000 \
+        --stim-ms 2500 \
+        --save-dir "results/sweeps_10_04" \
         2>&1 | tee "$run_log"; then
         
         echo "✓ Completed successfully at: $(date)" | tee -a "$BATCH_LOG"
@@ -52,16 +52,8 @@ run_sweep() {
 
 
 
-run_sweep "L4C"   "VIP" "AMPA" 1.0
-run_sweep "L4C"   "E" "AMPA" 1.0
-run_sweep "L4C"   "PV" "AMPA" 1.0
-run_sweep "L4C"   "SOM" "AMPA" 1.0
 
 
-run_sweep "L4AB"   "VIP" "AMPA" 1.0
-run_sweep "L4AB"   "E" "AMPA" 1.0
-run_sweep "L4AB"   "PV" "AMPA" 1.0
-run_sweep "L4AB"   "SOM" "AMPA" 1.0
 
 
 run_sweep "L23"   "VIP" "AMPA" 1.0
@@ -83,6 +75,15 @@ run_sweep "L6"   "SOM" "AMPA" 1.0
 
 
 
+run_sweep "L4AB"   "VIP" "AMPA" 1.0
+run_sweep "L4AB"   "E" "AMPA" 1.0
+run_sweep "L4AB"   "PV" "AMPA" 1.0
+run_sweep "L4AB"   "SOM" "AMPA" 1.0
+
+run_sweep "L4C"   "VIP" "AMPA" 1.0
+run_sweep "L4C"   "E" "AMPA" 1.0
+run_sweep "L4C"   "PV" "AMPA" 1.0
+run_sweep "L4C"   "SOM" "AMPA" 1.0
 
 echo "======================================" | tee -a "$BATCH_LOG"
 echo "Batch run completed at $(date)" | tee -a "$BATCH_LOG"
