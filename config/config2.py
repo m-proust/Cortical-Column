@@ -5,7 +5,8 @@ import pandas as pd                                 #                   .'      
 from collections import defaultdict                 #             r~.    :           .l[                                  
                                                     #              .JI;. ;          ^II                                   
 EXT_NMDA_WEIGHT = 0.45*nS                           #                `iI_;|          ;I                                   
-EXT_AMPA_WEIGHT = 1.25*nS                           #                  'I;!          zIlq..`h!p.      i.                                                #    .k  i.         .YIU         l;I;la..foc:     \    .b|k           
+EXT_AMPA_WEIGHT = 1.25*nS                           #                  'I;!          zIlq..`h!p.      i.                                                
+                                                    #    .k  i.         .YIU         l;I;la..foc:     \    .b|k           
 tau_e_NMDA = 100*ms                                 #     .#` M.    tZ}?]I;Ik.        ;;!.          :.{.  kIpo'           
 tau_i_PV   =  6*ms                                  #      .YIIh.         `f:a.     '*;Iw           #;!!Il0'              
 tau_i_SOM  = 20*ms                                  # .       1>}.          Z;;Z:.`d;;;;_       ..;x;lC`                  
@@ -105,11 +106,11 @@ _LAYER_CONFIGS = {
         'connection_prob': csv_layer_configs['L4AB']['connection_prob'],
         'conductance': csv_layer_configs['L4AB']['conductance'],
         'poisson_inputs': {
-            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 34},
+            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 24},
             # 'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 54}, 
-            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
-            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 16},
-            'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 14},
+            'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
+            'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
+            'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
             # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
             # 'SOM_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
             # 'VIP_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
@@ -391,13 +392,13 @@ CONFIG = {
     },
 
     'intrinsic_params': {
-        'E':   {'a': 4*nS, 'b': 100*pA, 'DeltaT': 2*mV,
-                'C': 97*pF, 'gL': 4.2*nS, 'tauw': 100*ms, 'EL': -65*mV},
+        'E':   {'a': 2*nS, 'b': 40*pA, 'DeltaT': 2*mV,
+                'C': 97*pF, 'gL': 4.2*nS, 'tauw': 200*ms, 'EL': -65*mV},
         'PV':  {'a': 0*nS, 'b': 0*pA, 'DeltaT': 0.5*mV,
                 'C': 38*pF, 'gL': 3.8*nS, 'tauw': 50*ms,  'EL': -68*mV},
         'SOM': {'a': 4*nS, 'b': 50*pA, 'DeltaT': 1.5*mV,
-                'C': 92*pF, 'gL': 4.3*nS, 'tauw': 180*ms, 'EL': -63*mV},
-        'VIP': {'a': 2*nS, 'b': 40*pA, 'DeltaT': 2*mV,
+                'C': 92*pF, 'gL': 4.3*nS, 'tauw': 400*ms, 'EL': -63*mV},
+        'VIP': {'a': 2*nS, 'b': 15*pA, 'DeltaT': 2*mV,
                 'C': 70*pF, 'gL': 3.3*nS, 'tauw': 150*ms, 'EL': -61*mV},
     },
 

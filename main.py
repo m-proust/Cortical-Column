@@ -71,7 +71,7 @@ def main():
     L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
                              N=N_stim_L6_PV, 
                              rate=stim_rate_L6_PV, 
-                             weight=w_ext_AMPA*1.5)
+                             weight=w_ext_AMPA*2.5)
     L6_E_grp = L6.neuron_groups['E']
     N_stim_L6_E = 10
     stim_rate_L6_E = 5*Hz  
@@ -79,7 +79,7 @@ def main():
     L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
                              N=N_stim_L6_E, 
                              rate=stim_rate_L6_E, 
-                             weight=w_ext_AMPA*1.5)
+                             weight=w_ext_AMPA)
 
 
 
