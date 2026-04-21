@@ -5,7 +5,8 @@ import pandas as pd                                 #                   .'      
 from collections import defaultdict                 #             r~.    :           .l[                                  
                                                     #              .JI;. ;          ^II                                   
 EXT_NMDA_WEIGHT = 0.45*nS                           #                `iI_;|          ;I                                   
-EXT_AMPA_WEIGHT = 1.25*nS                           #                  'I;!          zIlq..`h!p.      i.                                                #    .k  i.         .YIU         l;I;la..foc:     \    .b|k           
+EXT_AMPA_WEIGHT = 1.25*nS                           #                  'I;!          zIlq..`h!p.      i.                                                
+                                                    #    .k  i.         .YIU         l;I;la..foc:     \    .b|k           
 tau_e_NMDA = 100*ms                                 #     .#` M.    tZ}?]I;Ik.        ;;!.          :.{.  kIpo'           
 tau_i_PV   =  6*ms                                  #      .YIIh.         `f:a.     '*;Iw           #;!!Il0'              
 tau_i_SOM  = 20*ms                                  # .       1>}.          Z;;Z:.`d;;;;_       ..;x;lC`                  
