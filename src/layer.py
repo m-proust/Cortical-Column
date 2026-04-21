@@ -231,12 +231,25 @@ class CorticalLayer:
             )
 
     def _create_monitors(self):
-        for pop_name, group in self.neuron_groups.items():
-            candidate_vars = ['v', 'gE', 'gI', 'IsynE', 'IsynE_AMPA', 'IsynE_NMDA',
-                               'IsynI', 'IsynIPV', 'IsynISOM', 'IsynIVIP'] if not self.is_current else ['v', 'sE', 'sI']
-            vars_to_record = [v for v in candidate_vars if v in group.variables]
+        candidate_vars = (['v', 'gE', 'gI', 'IsynE', 'IsynE_AMPA', 'IsynE_NMDA','IsynI', 'IsynIPV', 'IsynISOM', 'IsynIVIP']
+            if not self.is_current
+            else ['v', 'sE', 'sI']
+        )
 
-            self.monitors[f'{pop_name}_state'] = StateMonitor(group, vars_to_record, record=True, dt=1*ms)
+        full_vars = ['IsynE', 'IsynI']
+
+        for pop_name, group in self.neuron_groups.items():
+            vars_to_record = [v for v in candidate_vars if v in group.variables]
+            self.monitors[f'{pop_name}_state'] = StateMonitor(
+                group, vars_to_record, record=True, dt=1*ms,
+            )
+
+            full_to_record = [v for v in full_vars if v in group.variables]
+            if full_to_record:
+                self.monitors[f'{pop_name}_Isyn_full'] = StateMonitor(
+                    group, full_to_record, record=True, dt=0.5*ms,
+                )
+
             self.monitors[f'{pop_name}_spikes'] = SpikeMonitor(group, variables='t')
             self.monitors[f'{pop_name}_rate'] = PopulationRateMonitor(group)
 

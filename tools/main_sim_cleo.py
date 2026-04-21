@@ -2,7 +2,7 @@ import numpy as np
 import brian2 as b2
 from brian2 import *
 from brian2tools import *
-from config.config2 import CONFIG
+from config.config import CONFIG
 from src.column import CorticalColumn
 import cleo
 from cleo import ephys

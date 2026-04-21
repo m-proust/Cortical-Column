@@ -65,9 +65,9 @@ tau_e_AMPA_VIP = 2*ms   # VIP neurons               #                       :;::
 
 
 csv_layer_configs, _INTER_LAYER_CONNECTIONS, _INTER_LAYER_CONDUCTANCES = load_connectivity_from_csv(
-    'config/connection_probabilities2.csv',
-    'config/conductances_AMPA2_alpha_v2.csv',
-    'config/conductances_NMDA2_alpha_v2.csv'  )
+    'config/connection_probabilities.csv',
+    'config/conductances_AMPA_GABA.csv',
+    'config/conductances_NMDA.csv'  )
 
 
 

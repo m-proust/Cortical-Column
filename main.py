@@ -2,11 +2,11 @@ import numpy as np
 import brian2 as b2
 from brian2 import *
 from brian2tools import *
-from config.config2 import CONFIG
+from config.config import CONFIG
 from src.column import CorticalColumn
 from src.visualization import *
 from src.analysis import *
-
+from tools.lfp_kernel import calculate_lfp_kernel_method
 
 def main():
     seed = 58925
@@ -168,9 +168,10 @@ def main():
                  smooth_window=15*ms, 
                  ylim_max=80,      
                  show_stats=True)  
-    fig_lfp = plot_lfp_comparison(lfp_signals, bipolar_signals, time_array, electrode_positions, 
+    fig_lfp = plot_lfp_comparison(lfp_signals, bipolar_signals, time_array, electrode_positions,
                         channel_labels, channel_depths, figsize=(18, 12), time_range=(1000, 3500))
-    
+
+
     plt.show()
 
 

@@ -1,16 +1,3 @@
-"""
-Alpha–Gamma Phase-Amplitude Coupling Analysis
-==============================================
-Replicates Spaak et al. (2012) Figure 2:
-  - Detects alpha peaks in infragranular bipolar LFP
-  - Aligns time-frequency representations (TFRs) of gamma power to those peaks
-  - Plots mean TFR for supragranular, granular, and infragranular compartments
-  - Shows percent power modulation relative to epoch mean
-
-Usage:
-    python alpha_gamma_coupling.py --trial_dir results/trials_01_04_3 --n_trials 50
-"""
-
 import os
 import glob
 import argparse
@@ -21,17 +8,12 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.colors import TwoSlopeNorm
 
-
-# ──────────────────────────────────────────────────────────
-# 1.  LAYER / ELECTRODE MAPPING
-# ──────────────────────────────────────────────────────────
-# Layer z-ranges from config2.py
 LAYER_Z_RANGES = {
-    'L23':  (0.45, 1.10),   # supragranular
-    'L4AB': (0.14, 0.45),   # granular (upper)
-    'L4C':  (-0.14, 0.14),  # granular (lower)
-    'L5':   (-0.34, -0.14), # infragranular
-    'L6':   (-0.62, -0.34), # infragranular
+    'L23':  (0.45, 1.10),
+    'L4AB': (0.14, 0.45), 
+    'L4C':  (-0.14, 0.14), 
+    'L5':   (-0.34, -0.14),
+    'L6':   (-0.62, -0.34),
 }
 
 COMPARTMENT_LAYERS = {
@@ -40,9 +22,7 @@ COMPARTMENT_LAYERS = {
     'infragranular': ['L5', 'L6'],
 }
 
-
 def classify_bipolar_channels(channel_depths):
-    """Assign each bipolar channel to a laminar compartment based on its midpoint depth."""
     labels = []
     for z in channel_depths:
         if z >= LAYER_Z_RANGES['L23'][0]:
@@ -53,10 +33,6 @@ def classify_bipolar_channels(channel_depths):
             labels.append('infragranular')
     return np.array(labels)
 
-
-# ──────────────────────────────────────────────────────────
-# 2.  SIGNAL PROCESSING HELPERS
-# ──────────────────────────────────────────────────────────
 def bandpass(sig, lo, hi, fs, order=4):
     nyq = fs / 2
     b, a = butter(order, [lo / nyq, hi / nyq], btype='band')
@@ -64,35 +40,12 @@ def bandpass(sig, lo, hi, fs, order=4):
 
 
 def detect_peaks(sig):
-    """Return indices of local maxima (positive peaks)."""
     d = np.diff(sig)
     peaks = np.where((d[:-1] > 0) & (d[1:] <= 0))[0] + 1
     return peaks
 
 
 def morlet_tfr(sig, fs, freqs, n_cycles=5):
-    """Compute time-frequency power using Morlet wavelets.
-
-    Parameters
-    ----------
-    sig : 1-D array
-    fs : sampling rate (Hz)
-    freqs : array of frequencies to evaluate
-    n_cycles : number of cycles (controls frequency resolution)
-
-    Returns
-    -------
-    power : (n_freqs, n_times) array
-
-    Notes
-    -----
-    At each frequency f, the wavelet has:
-      - Duration: n_cycles / f  (e.g. 5/50Hz = 100ms)
-      - Frequency resolution (FWHM): ~f / n_cycles  (e.g. 50/5 = 10Hz)
-      - Scale parameter: s = n_cycles * fs / (2*pi*f)
-    
-    The squared magnitude of the convolution gives instantaneous power.
-    """
     n_freqs = len(freqs)
     n_times = len(sig)
     power = np.zeros((n_freqs, n_times))
@@ -107,23 +60,11 @@ def morlet_tfr(sig, fs, freqs, n_cycles=5):
     return power
 
 
-# ──────────────────────────────────────────────────────────
-# 3.  HIGH-ALPHA SEGMENT SELECTION  (Spaak et al. approach)
-# ──────────────────────────────────────────────────────────
 def select_high_alpha_segments(alpha_env, fs, threshold_percentile=75,
                                 min_duration_ms=300):
-    """Return boolean mask for time points belonging to high-alpha segments.
-
-    Parameters
-    ----------
-    alpha_env : analytic amplitude envelope of the alpha-filtered signal
-    fs : sampling rate
-    threshold_percentile : percentile of envelope above which = high alpha
-    min_duration_ms : minimum contiguous duration to keep (ms)
-    """
+   
     thresh = np.percentile(alpha_env, threshold_percentile)
     mask = alpha_env >= thresh
-    # enforce minimum duration
     min_samps = int(min_duration_ms * fs / 1000)
     out = np.zeros_like(mask)
     start = None
@@ -141,9 +82,6 @@ def select_high_alpha_segments(alpha_env, fs, threshold_percentile=75,
     return out
 
 
-# ──────────────────────────────────────────────────────────
-# 4.  CORE ANALYSIS: epoch-aligned TFR
-# ──────────────────────────────────────────────────────────
 def compute_alpha_peak_aligned_tfr(
     bipolar_matrix,
     channel_depths,
@@ -158,44 +96,9 @@ def compute_alpha_peak_aligned_tfr(
     analysis_period='baseline',
     transient_ms=300,
 ):
-    """
-    Main analysis function replicating Spaak et al. Figure 2.
-
-    1. Pick infragranular bipolar channels
-    2. Average them to get a single infragranular alpha reference signal
-    3. Bandpass 7-14 Hz → detect alpha peaks
-    4. For each compartment, compute wavelet TFR
-    5. Epoch-align TFR to alpha peaks, average, normalise to % modulation
-
-    Parameters
-    ----------
-    bipolar_matrix : (n_bipolar_channels, n_samples) array
-    channel_depths : list/array of bipolar channel midpoint depths
-    fs : sampling rate in Hz
-    alpha_band : tuple (lo, hi) Hz for peak detection filter
-    gamma_freqs : array of frequencies for the TFR (can extend below gamma)
-    window_ms : half-window around alpha peak (ms)
-    n_cycles : Morlet wavelet cycles
-    high_alpha_percentile : percentile threshold for high-alpha selection
-    use_high_alpha : whether to restrict to high-alpha segments
-    stim_onset_ms : if set, restrict analysis to a time period
-    analysis_period : 'baseline', 'stim', or 'all'
-    transient_ms : post-stimulus transient to exclude (ms)
-
-    Returns
-    -------
-    results : dict with keys per compartment, each containing:
-        'tfr_pct' : (n_freqs, n_epoch_samples) percent modulation
-        'time_axis_ms' : time axis relative to alpha peak
-        'freqs' : frequency axis
-        'n_epochs' : number of alpha peaks used
-        'alpha_trace' : mean alpha-aligned raw trace (infragranular)
-    """
     compartment_labels = classify_bipolar_channels(channel_depths)
     n_channels, n_samples = bipolar_matrix.shape
     window_samp = int(window_ms * fs / 1000)
-
-    # --- determine analysis time range ---
     if stim_onset_ms is not None:
         onset_samp = int(stim_onset_ms * fs / 1000)
         transient_samp = int(transient_ms * fs / 1000)
@@ -208,28 +111,24 @@ def compute_alpha_peak_aligned_tfr(
     else:
         t_start, t_end = 0, n_samples
 
-    # --- Step 1: infragranular reference ---
+
     infra_idx = np.where(compartment_labels == 'infragranular')[0]
     if len(infra_idx) == 0:
-        raise ValueError("No infragranular channels found. Check electrode depths.")
+        raise ValueError("zero infragranular channels found")
     infra_mean = np.mean(bipolar_matrix[infra_idx], axis=0)
 
-    # --- Step 2: alpha filter + envelope ---
     alpha_sig = bandpass(infra_mean, alpha_band[0], alpha_band[1], fs)
     alpha_env = np.abs(hilbert(alpha_sig))
 
-    # --- Step 3: high-alpha mask ---
     if use_high_alpha:
         ha_mask = select_high_alpha_segments(alpha_env, fs,
                                               threshold_percentile=high_alpha_percentile)
     else:
         ha_mask = np.ones(n_samples, dtype=bool)
 
-    # analysis period mask
     period_mask = np.zeros(n_samples, dtype=bool)
     period_mask[t_start:t_end] = True
 
-    # --- Step 4: detect alpha peaks ---
     peaks = detect_peaks(alpha_sig)
     valid_peaks = []
     for p in peaks:
@@ -242,10 +141,9 @@ def compute_alpha_peak_aligned_tfr(
     valid_peaks = np.array(valid_peaks)
 
     if len(valid_peaks) == 0:
-        print("  WARNING: no valid alpha peaks found!")
+        print("no valid alpha peaks found")
         return None
 
-    # --- Step 5: compute TFR per compartment, epoch-align, average ---
     results = {}
     time_axis = np.arange(-window_samp, window_samp) / fs * 1000  # ms
 
@@ -266,7 +164,6 @@ def compute_alpha_peak_aligned_tfr(
 
         mean_tfr = np.mean(tfr_epochs, axis=0)
 
-        # normalise: % modulation relative to epoch-mean power per frequency
         baseline_power = np.mean(mean_tfr, axis=1, keepdims=True)
         baseline_power[baseline_power == 0] = 1e-30
         tfr_pct = (mean_tfr - baseline_power) / baseline_power * 100
@@ -278,7 +175,6 @@ def compute_alpha_peak_aligned_tfr(
             'n_epochs': len(valid_peaks),
         }
 
-    # mean alpha-aligned raw infragranular trace
     alpha_epochs = np.zeros((len(valid_peaks), 2 * window_samp))
     for ei, pk in enumerate(valid_peaks):
         alpha_epochs[ei] = infra_mean[pk - window_samp: pk + window_samp]
@@ -293,21 +189,8 @@ def compute_alpha_peak_aligned_tfr(
     return results
 
 
-# ──────────────────────────────────────────────────────────
-# 5.  PLOTTING (Spaak et al. Figure 2 style)
-# ──────────────────────────────────────────────────────────
 def plot_alpha_gamma_coupling(results, title_suffix='', save_path=None):
-    """
-    4-panel figure mimicking Spaak et al. Figure 2:
-      A) Supragranular TFR
-      B) Granular TFR
-      C) Infragranular TFR
-      D) Mean alpha-aligned raw trace (infragranular)
-
-    A dashed horizontal line marks the upper edge of the alpha band
-    to indicate the boundary below which coupling is trivially expected
-    due to the analysis method.
-    """
+  
     fig = plt.figure(figsize=(8, 12))
     gs = gridspec.GridSpec(4, 1, height_ratios=[1, 1, 1, 0.5], hspace=0.35)
 
@@ -319,7 +202,6 @@ def plot_alpha_gamma_coupling(results, title_suffix='', save_path=None):
         'Infragranular power',
     ]
 
-    # get alpha band for the boundary line
     alpha_hi = 14.0
     if 'alpha_band' in results:
         alpha_hi = results['alpha_band'][1]
@@ -346,7 +228,6 @@ def plot_alpha_gamma_coupling(results, title_suffix='', save_path=None):
             ax.set_title(f'{comp_title}  (n={r["n_epochs"]} epochs)',
                          fontsize=11, fontweight='bold')
 
-            # draw alpha band upper boundary
             ax.axhline(alpha_hi, color='white', ls='--', lw=1.2, alpha=0.8)
             ax.text(r['time_axis_ms'][-1] * 0.95, alpha_hi + 2,
                     f'α = {alpha_hi:.0f} Hz', color='white', fontsize=8,
@@ -367,19 +248,18 @@ def plot_alpha_gamma_coupling(results, title_suffix='', save_path=None):
         ax.text(-0.08, 1.05, panel_labels[i], transform=ax.transAxes,
                 fontsize=14, fontweight='bold')
 
-    # Panel D: mean alpha trace
     ax_d = fig.add_subplot(gs[3])
     if 'alpha_trace' in results:
         at = results['alpha_trace']
         ax_d.plot(at['time_axis_ms'], at['mean'], 'k-', lw=1.2)
         ax_d.axvline(0, color='gray', ls='--', alpha=0.5)
         ax_d.set_xlabel('Time relative to alpha peak (ms)')
-        ax_d.set_ylabel('Bipolar LFP (a.u.)')
+        ax_d.set_ylabel('Bipolar LFP')
         ax_d.set_title('Infragranular alpha', fontsize=11, fontweight='bold')
     ax_d.text(-0.08, 1.05, 'D', transform=ax_d.transAxes,
               fontsize=14, fontweight='bold')
 
-    fig.suptitle(f'Alpha–Gamma Coupling (Spaak et al. replication){title_suffix}',
+    fig.suptitle(f'Alpha Gamma Coupling {title_suffix}',
                  fontsize=13, fontweight='bold', y=0.98)
 
     if save_path:
@@ -390,11 +270,7 @@ def plot_alpha_gamma_coupling(results, title_suffix='', save_path=None):
     return fig
 
 
-# ──────────────────────────────────────────────────────────
-# 6.  TRIAL LOADING AND AGGREGATION
-# ──────────────────────────────────────────────────────────
 def load_trial(fpath):
-    """Load a single trial .npz file and return a dict."""
     d = np.load(fpath, allow_pickle=True)
     out = {}
     for k in d.files:
@@ -406,10 +282,7 @@ def aggregate_trials(trial_dir, n_trials=None, analysis_period='all',
                      use_high_alpha=True, high_alpha_percentile=75,
                      alpha_band=(7, 14), gamma_freqs=None,
                      window_ms=300, fs=10000, transient_ms=300):
-    """
-    Load trials, compute alpha-peak-aligned TFR for each, then average
-    the normalised TFRs across trials.
-    """
+
     if gamma_freqs is None:
         gamma_freqs = np.arange(15, 201, 2)
 
@@ -418,16 +291,13 @@ def aggregate_trials(trial_dir, n_trials=None, analysis_period='all',
         files = files[:n_trials]
 
     if len(files) == 0:
-        raise FileNotFoundError(f"No trial files found in {trial_dir}")
-
-    print(f"Found {len(files)} trial files in {trial_dir}")
+        raise FileNotFoundError(f"zero trial files found in {trial_dir}")
 
     acc = {}
     count = 0
     all_peak_times_ms = []
 
     for fi, fpath in enumerate(files):
-        print(f"  Processing {os.path.basename(fpath)} ({fi+1}/{len(files)})...")
         trial = load_trial(fpath)
 
         bipolar_matrix = trial['bipolar_matrix']
@@ -441,7 +311,6 @@ def aggregate_trials(trial_dir, n_trials=None, analysis_period='all',
         if stim_onset == 0 and 'baseline_ms' in trial:
             stim_onset = float(trial['baseline_ms'])
 
-        # downsample 10kHz → 1kHz
         target_fs = 1000.0
         if trial_fs > target_fs * 1.5:
             ds_factor = int(round(trial_fs / target_fs))
@@ -463,9 +332,6 @@ def aggregate_trials(trial_dir, n_trials=None, analysis_period='all',
             transient_ms=transient_ms,
         )
 
-        if res is None:
-            print(f"    Skipped (no valid alpha peaks)")
-            continue
 
         all_peak_times_ms.extend(res['peak_times_ms'].tolist())
 
@@ -495,7 +361,7 @@ def aggregate_trials(trial_dir, n_trials=None, analysis_period='all',
         count += 1
 
     if count == 0:
-        raise RuntimeError("No trials produced valid results.")
+        raise RuntimeError("no trials produced valid results.")
 
     final = {}
     for comp in ['supragranular', 'granular', 'infragranular']:
@@ -515,30 +381,17 @@ def aggregate_trials(trial_dir, n_trials=None, analysis_period='all',
 
     final['alpha_band'] = alpha_band
 
-    print(f"\nDone. Aggregated {count} trials.")
-    if len(all_peak_times_ms) > 0:
-        arr = np.array(all_peak_times_ms)
-        print(f"  Alpha peak times (ms): mean={arr.mean():.1f}, "
-              f"std={arr.std():.1f}, min={arr.min():.1f}, max={arr.max():.1f}, "
-              f"n_peaks={len(arr)}")
-    for comp in ['supragranular', 'granular', 'infragranular']:
-        if comp in final:
-            print(f"  {comp}: {final[comp]['n_epochs']} total alpha-peak epochs")
-
     return final
 
 
-# ──────────────────────────────────────────────────────────
-# 7.  MAIN
-# ──────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(
-        description='Alpha-gamma coupling analysis (Spaak et al. 2012 replication)')
+        description='slpha-gamma coupling analysis')
     parser.add_argument('--trial_dir', type=str, required=True,
                         help='Directory containing trial_*.npz files')
     parser.add_argument('--n_trials', type=int, default=None,
-                        help='Max number of trials to load (default: all)')
-    parser.add_argument('--period', type=str, default='both',
+                        help='Max number of trials to load (the default is all)')
+    parser.add_argument('--period', type=str, default='baseline',
                         choices=['baseline', 'stim', 'all', 'both'],
                         help='Which time period to analyse (both = baseline + stim separately)')
     parser.add_argument('--no_high_alpha', action='store_true',
@@ -571,10 +424,7 @@ def main():
         periods = [args.period]
 
     for period in periods:
-        print(f"\n{'='*60}")
-        print(f"  Analysing period: {period}"
-              + (f"  (excluding {args.transient_ms:.0f} ms transient)" if period == 'stim' else ''))
-        print(f"{'='*60}")
+
 
         final = aggregate_trials(
             trial_dir=args.trial_dir,
@@ -593,7 +443,6 @@ def main():
         plot_alpha_gamma_coupling(final, title_suffix=suffix, save_path=fig_path)
 
         if not args.no_high_alpha:
-            print(f"\n--- Re-running {period} without high-alpha selection ---")
             final_all = aggregate_trials(
                 trial_dir=args.trial_dir,
                 n_trials=args.n_trials,
@@ -607,7 +456,7 @@ def main():
             fig_path2 = os.path.join(save_dir,
                                       f'alpha_gamma_coupling_{period}_all_data.png')
             plot_alpha_gamma_coupling(final_all,
-                                      title_suffix=f'{suffix} (all data, no high-α selection)',
+                                      title_suffix=f'{suffix} (all data, no high alpha selection)',
                                       save_path=fig_path2)
 
 

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 # A file to plot connectivity/conductance matrixes
 
-conn_df = pd.read_csv('config/connection_probabilities2.csv', index_col=0)
+conn_df = pd.read_csv('config/connection_probabilities.csv', index_col=0)
 mask = conn_df == 0
 plt.figure(figsize=(7, 7))
 ax = sns.heatmap(conn_df, annot=True, fmt='.3f', cmap='Reds', square=True,
@@ -22,7 +22,7 @@ plt.tight_layout()
 
 
 
-conn_df = pd.read_csv('config/conductances_AMPA2_alpha_v2.csv', index_col=0)
+conn_df = pd.read_csv('config/conductances_AMPA_GABA.csv', index_col=0)
 mask = conn_df == 0
 plt.figure(figsize=(7, 7))
 ax = sns.heatmap(conn_df, annot=True, fmt='.3f', cmap='Reds', square=True,
@@ -38,7 +38,7 @@ plt.xlabel('Postsynaptic Population')
 plt.ylabel('Presynaptic Population')
 plt.tight_layout()
 
-conn_df = pd.read_csv('config/conductances_NMDA2_alpha_v2.csv', index_col=0)
+conn_df = pd.read_csv('config/conductances_NMDA.csv', index_col=0)
 mask = conn_df == 0
 plt.figure(figsize=(7, 7))
 ax = sns.heatmap(conn_df, annot=True, fmt='.3f', cmap='Reds', square=True,

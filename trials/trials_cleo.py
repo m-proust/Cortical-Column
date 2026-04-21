@@ -4,17 +4,17 @@ import shutil
 import numpy as np
 import brian2 as b2
 from brian2 import *
-from config.config2 import CONFIG
+from config.config import CONFIG
 from src.column import CorticalColumn
 import cleo
 from cleo import ephys
 
 
 CONFIG_FILES = [
-    "config/config2.py",
-    "config/conductances_AMPA2_alpha_v2.csv",
-    "config/conductances_NMDA2_alpha_v2.csv",
-    "config/connection_probabilities2.csv",
+    "config/config.py",
+    "config/conductances_AMPA_GABA.csv",
+    "config/conductances_NMDA.csv",
+    "config/connection_probabilities.csv",
     "trials_cleo.py",
 ]
 
