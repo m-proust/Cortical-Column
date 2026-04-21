@@ -2,11 +2,13 @@
 */__pycache__
 *.pyc
 *.npy
-first_sim.py
-/bazar
 /bin
 /results
 /test_trials
 /full_trials
 src/cleo_plots.py
 .DS_Store
+/venv
+*.png
+*.npz
+*.db

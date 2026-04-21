@@ -23,10 +23,13 @@ class CorticalLayer:
         self.poisson_inputs = {}
 
         self._create_neuron_groups()
+        
+
         self._set_neuron_parameters()
         self._create_poisson_inputs()
         self._create_internal_connections()
         self._create_monitors()
+
 
     def _create_neuron_groups(self):
         models_cfg = self.config.get('models', {})
@@ -37,11 +40,23 @@ class CorticalLayer:
         eqs_map = self.config['models']['equations']
         threshold = self.config['models']['threshold']
         reset = self.config['models']['reset']
+        
+        eq_override = self.layer_config.get('equation_override', {})
 
         for pop_name, n in self.layer_config.get('neuron_counts', {}).items():
+            eq_key = eq_override.get(pop_name, pop_name)
+            
+            t_ref_config = self.config['neurons']['T_REF']
+            if isinstance(t_ref_config, dict):
+                t_ref = t_ref_config.get(pop_name, t_ref_config.get('E'))
+            else:
+                t_ref = t_ref_config
+
             self.neuron_groups[pop_name] = NeuronGroup(
-                int(n), eqs_map[pop_name], threshold=threshold, reset=reset,
-                refractory=self.config['neurons']['T_REF'],
+                int(n), eqs_map[eq_key],
+                threshold=threshold,
+                reset=reset,
+                refractory=t_ref,
                 namespace=common_namespace
             )
             
@@ -62,7 +77,8 @@ class CorticalLayer:
 
         cfg = self.config
         neurons_cfg = cfg.get('neurons', {})
-        intrinsic = cfg.get('intrinsic_params', {})
+        intrinsic_global = cfg.get('intrinsic_params', {})
+        intrinsic_layer = self.layer_config.get('intrinsic_params', {})
         ic_all = cfg.get('initial_conditions', {})
         vt_default = neurons_cfg.get('VT', -50.0*mV)
 
@@ -74,9 +90,15 @@ class CorticalLayer:
             mu_st = drive.get('mu_stim', {})
             sd_st = drive.get('sd_stim', {})
             sg = drive.get('sigma_global', 0*mV)
-
+        eq_override = self.layer_config.get('equation_override', {})
+        
         for pop_name, g in self.neuron_groups.items():
-            ip = intrinsic.get(pop_name, {})
+            param_key = eq_override.get(pop_name, pop_name)
+            # Start with global params, then override with layer-specific
+            ip_global = intrinsic_global.get(param_key, intrinsic_global.get(pop_name, {}))
+            ip_layer = intrinsic_layer.get(param_key, intrinsic_layer.get(pop_name, {}))
+            ip = dict(ip_global, **ip_layer)  # Layer-specific overrides global
+       
             set_if_exists(g, 'a', ip.get('a', 0*nS))
             set_if_exists(g, 'b', ip.get('b', 0*pA))
             set_if_exists(g, 'DeltaT', ip.get('DeltaT', 2*mV))
@@ -106,19 +128,28 @@ class CorticalLayer:
                 set_if_exists(g, 'sigma_drive', sigma)
 
     def _get_delay_params(self, pre_pop, post_pop):
-        excitatory = (pre_pop == 'E')
-        
-        if pre_pop == post_pop: 
-            delay_mean = 0.8*ms
-            delay_std = 0.5*ms
-        elif excitatory: 
-            delay_mean = 0.6*ms
-            delay_std = 0.4*ms
-        else:  
-            delay_mean = 0.5*ms
-            delay_std = 0.3*ms
-            
-        return delay_mean, delay_std
+   
+        delay_table = {
+            ('E', 'E'):     (1.5, 0.5),
+            ('E', 'PV'):    (1.2, 0.8),
+            ('E', 'SOM'):   (1.5, 0.5),
+            ('E', 'VIP'):   (1.5, 0.5),
+            ('PV', 'E'):    (0.9, 0.8),
+            ('PV', 'PV'):   (1.6, 0.4),
+            ('PV', 'SOM'):  (1.2, 0.4),
+            ('PV', 'VIP'):  (1.2, 0.4),
+            ('SOM', 'E'):   (1.5, 0.5),
+            ('SOM', 'PV'):  (1.5, 0.5),
+            ('SOM', 'SOM'): (1.5, 0.5),
+            ('SOM', 'VIP'): (1.5, 0.5),
+            ('VIP', 'E'):   (3.8, 1.0),
+            ('VIP', 'PV'):  (3.8, 1.0),
+            ('VIP', 'SOM'): (3.8, 1.0),
+            ('VIP', 'VIP'): (3.8, 1.0),
+        }
+    
+        mean_ms, std_ms = delay_table.get((pre_pop, post_pop), (1.5, 0.5))
+        return mean_ms * ms, std_ms * ms
 
     def _create_internal_connections(self):
         pmap = self.layer_config.get('connection_prob', {})
@@ -138,15 +169,16 @@ class CorticalLayer:
                 nmda_key = f'{connection}_NMDA'
                 
                 g_ampa = cmap.get(ampa_key, 0.01)
-                g_nmda = cmap.get(nmda_key, 0.005)
-                
+                g_nmda = cmap.get(nmda_key, 0.0)
+
+                on_pre_str = f'gE_AMPA_post += {g_ampa}*nS'
+                if g_nmda > 0:
+                    on_pre_str += f'\ngE_NMDA_post += {g_nmda}*nS'
+
                 syn = Synapses(
                     self.neuron_groups[pre],
                     self.neuron_groups[post],
-                    on_pre=f'''
-                    gE_AMPA_post += {g_ampa}*nS
-                    gE_NMDA_post += {g_nmda}*nS
-                    '''
+                    on_pre=on_pre_str
                 )
                 syn.connect(p=float(p))
                 syn.delay = (f'{delay_mean/ms}*ms + '
@@ -166,9 +198,9 @@ class CorticalLayer:
                 )
                 syn.connect(p=float(p))
                 # optional delays
-                # syn.delay = (f'{delay_mean/ms}*ms + '
-                #             f'clip(randn()*{delay_std/ms}, '
-                #             f'-{delay_std/ms}*0.5, {delay_std/ms}*2)*ms')
+                syn.delay = (f'{delay_mean/ms}*ms + '
+                            f'clip(randn()*{delay_std/ms}, '
+                            f'-{delay_std/ms}*0.5, {delay_std/ms}*2)*ms')
                 
                 self.synapses[connection] = syn
 
@@ -199,10 +231,25 @@ class CorticalLayer:
             )
 
     def _create_monitors(self):
+        candidate_vars = (['v', 'gE', 'gI', 'IsynE', 'IsynE_AMPA', 'IsynE_NMDA','IsynI', 'IsynIPV', 'IsynISOM', 'IsynIVIP']
+            if not self.is_current
+            else ['v', 'sE', 'sI']
+        )
+
+        full_vars = ['IsynE', 'IsynI']
+
         for pop_name, group in self.neuron_groups.items():
-            vars_to_record = ['v', 'gE', 'gI', 'IsynE',  'IsynI'] if not self.is_current else ['v', 'sE', 'sI']
-            
-            self.monitors[f'{pop_name}_state'] = StateMonitor(group, vars_to_record, record=True)
+            vars_to_record = [v for v in candidate_vars if v in group.variables]
+            self.monitors[f'{pop_name}_state'] = StateMonitor(
+                group, vars_to_record, record=True, dt=1*ms,
+            )
+
+            full_to_record = [v for v in full_vars if v in group.variables]
+            if full_to_record:
+                self.monitors[f'{pop_name}_Isyn_full'] = StateMonitor(
+                    group, full_to_record, record=True, dt=0.5*ms,
+                )
+
             self.monitors[f'{pop_name}_spikes'] = SpikeMonitor(group, variables='t')
             self.monitors[f'{pop_name}_rate'] = PopulationRateMonitor(group)
 
