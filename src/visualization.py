@@ -201,8 +201,8 @@ def plot_rate(rate_monitors, layer_configs, baseline_time, stim_time, figsize=(1
                 # ax.set_xlim(0, 1000)
                 
                 if show_stats:
-                    pre_mask = (t >= 200) & (t < 500)
-                    post_mask = (t >= 500)
+                    pre_mask = (t >= 1000) & (t < 2000)
+                    post_mask = (t >= 2000)
                     
                     if np.sum(pre_mask) > 0:
                         mean_pre = np.mean(r[pre_mask])

@@ -222,8 +222,8 @@ def plot_laminar_spectral_profile(all_trials,
 
 
 if __name__ == '__main__':
-    base_path = 'results/trials'
-    n_trials = 20
+    base_path = 'results/trials_23_04'
+    n_trials = 14
 
     all_trials = load_trials(base_path, n_trials)
 
