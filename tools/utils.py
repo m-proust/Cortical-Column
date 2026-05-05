@@ -18,11 +18,12 @@ def load_connectivity_from_csv(conn_prob_file, cond_ampa_file, cond_nmda_file,
     inter_layer_conductances = {}
 
     for layer in layers:
-
         connection_prob = {}
         conductance = {}
-
-        current_cell_types = cell_types
+        if layer == 'L1' :
+            current_cell_types=l1_cell_types
+        else :
+            current_cell_types = cell_types
 
         for src_type in current_cell_types:
             for tgt_type in current_cell_types:
@@ -61,12 +62,17 @@ def load_connectivity_from_csv(conn_prob_file, cond_ampa_file, cond_nmda_file,
         for tgt_layer in layers:
             if src_layer == tgt_layer:
                 continue
-
+            
             conn_dict = {}
             cond_dict = {}
-
-            src_cell_types = cell_types
-            tgt_cell_types = cell_types
+            if src_layer == 'L1' :
+                src_cell_types=l1_cell_types
+            else :
+                src_cell_types = cell_types
+            if tgt_layer == 'L1':
+                tgt_cell_types = l1_cell_types
+            else :
+                tgt_cell_types = cell_types
 
             for src_type in src_cell_types:
                 for tgt_type in tgt_cell_types:

@@ -320,44 +320,61 @@ def superlets(data,
 fname = "results/trials3_20_04/trial_015.npz"
 data = np.load(fname, allow_pickle=True)
 
-time = data["time_array_ms"]   
-bipolar_lfp = data["bipolar_matrix"]  
+time = data["time_array_ms"]
+bipolar_lfp = data["bipolar_matrix"]
 
-time_s = time / 1000.0   
+time_s = time / 1000.0
 dt = np.diff(time_s).mean()
-fs = 1.0 / dt              
+fs = 1.0 / dt
 
-signal = bipolar_lfp[6, :]   
+signal = bipolar_lfp[4, :]
+
+# Current-based bipolar LFP (from synaptic currents)
+time_current_ms = data["time_current_ms"]
+lfp_current_matrix = data["lfp_current_matrix"]
+bipolar_current = np.diff(lfp_current_matrix, axis=0)
+
+time_current_s = time_current_ms / 1000.0
+dt_c = np.diff(time_current_s).mean()
+fs_c = 1.0 / dt_c
+
+signal_c = bipolar_current[6, :]
 
 foi = np.arange(1, 20, 0.1)
-c1  = 2         
-ord = (1, 5)     
+c1  = 2
+ord = (1, 5)
 
-
-S_full = superlets(signal, fs, foi, c1, ord)  
+S_full   = superlets(signal,   fs,   foi, c1, ord)
+S_full_c = superlets(signal_c, fs_c, foi, c1, ord)
 
 t_start = 1.0
 t_end   = 1.8
-idx = (time_s >= t_start) & (time_s <= t_end)
+idx   = (time_s         >= t_start) & (time_s         <= t_end)
+idx_c = (time_current_s >= t_start) & (time_current_s <= t_end)
 
-t_win = time_s[idx]      
-S_win = S_full[:, idx]    
+t_win   = time_s[idx]
+S_win   = S_full[:, idx]
+t_win_c = time_current_s[idx_c]
+S_win_c = S_full_c[:, idx_c]
 
 
+fig, axes = plt.subplots(1, 2, figsize=(16, 6), sharey=True)
 
-plt.figure(figsize=(10, 6))
-plt.pcolormesh(t_win, foi, S_win, shading="auto")
-# plt.yscale("log")
-plt.axhline(y=4, color='w', linestyle='--', label='delta',linewidth=1)
-plt.axhline(y=8, color='w', linestyle='--', label='theta',linewidth=1)
-plt.axhline(y=12, color='w', linestyle='--', label='alpha',linewidth=1)
-plt.text(1, 2, r'Delta', color='w', fontsize=10)   
-plt.text(1, 6, r'Theta', color='w', fontsize=10)   
-plt.text(1, 10, r'Alpha', color='w', fontsize=10)   
-plt.text(1, 15, r'Beta', color='w', fontsize=10)   
-plt.xlabel("Time (s)")
-plt.ylabel("Frequency (Hz)")
-plt.title("Superlet Transform ")
-plt.colorbar(label="Power")
+def plot_spectrum(ax, t, S, title):
+    pcm = ax.pcolormesh(t, foi, S, shading="auto")
+    ax.axhline(y=4,  color='w', linestyle='--', linewidth=1)
+    ax.axhline(y=8,  color='w', linestyle='--', linewidth=1)
+    ax.axhline(y=12, color='w', linestyle='--', linewidth=1)
+    ax.text(t[0], 2,  r'Delta', color='w', fontsize=10)
+    ax.text(t[0], 6,  r'Theta', color='w', fontsize=10)
+    ax.text(t[0], 10, r'Alpha', color='w', fontsize=10)
+    ax.text(t[0], 15, r'Beta',  color='w', fontsize=10)
+    ax.set_xlabel("Time (s)")
+    ax.set_title(title)
+    fig.colorbar(pcm, ax=ax, label="Power")
+
+plot_spectrum(axes[0], t_win,   S_win,   "Superlet - bipolar LFP (kernel)")
+plot_spectrum(axes[1], t_win_c, S_win_c, "Superlet - bipolar LFP (synaptic currents)")
+axes[0].set_ylabel("Frequency (Hz)")
 plt.tight_layout()
 plt.show()

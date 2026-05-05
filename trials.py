@@ -273,11 +273,11 @@ def run_multiple_trials(
 if __name__ == "__main__":
     run_multiple_trials(
         CONFIG,
-        n_trials=50,
+        n_trials=30,
         network_seed=58910,
         baseline_ms=2000,
         stimuli_ms=2000,
         fs=10000,
-        save_dir="results/trials_23_04",
+        save_dir="results/trials_29_04_L1",
         verbose=True,
     )

@@ -42,53 +42,71 @@ def main():
     column.network.run(baseline_time * ms)
     L4C = column.layers['L4C']
     cfg_L4C = CONFIG['layers']['L4C']
-   
-    
-    L4C_E_grp = L4C.neuron_groups['E']
-    N_stim_E = 30
-    stim_rate_E = 5*Hz  
-    L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
-                                  N=N_stim_E, 
-                                  rate=stim_rate_E, 
-                                  weight=w_ext_AMPA)  
-    
-    
-    L4C_PV_grp = L4C.neuron_groups['PV']
-    N_stim_PV = 40
-    stim_rate_PV = 7*Hz 
-    L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
-                               N=N_stim_PV, 
-                               rate=stim_rate_PV, 
-                               weight=w_ext_AMPA*2.5)  
-    
-    
-    L6 = column.layers['L6']
-    cfg_L6 = CONFIG['layers']['L6']
-    L6_PV_grp = L6.neuron_groups['PV']
-    N_stim_L6_PV = 10
-    stim_rate_L6_PV = 6*Hz  
-    
-    L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
-                             N=N_stim_L6_PV, 
-                             rate=stim_rate_L6_PV, 
-                             weight=w_ext_AMPA*1.5)
-    L6_E_grp = L6.neuron_groups['E']
-    N_stim_L6_E = 10
-    stim_rate_L6_E = 5*Hz  
-    
-    L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
-                             N=N_stim_L6_E, 
-                             rate=stim_rate_L6_E, 
-                             weight=w_ext_AMPA*1.5)
 
+    # ---- STIMULUS BLOCK (commented out for silencing test) ----
+    # L4C_E_grp = L4C.neuron_groups['E']
+    # N_stim_E = 30
+    # stim_rate_E = 5*Hz
+    # L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA',
+    #                               N=N_stim_E,
+    #                               rate=stim_rate_E,
+    #                               weight=w_ext_AMPA)
+    #
+    # L4C_PV_grp = L4C.neuron_groups['PV']
+    # N_stim_PV = 40
+    # stim_rate_PV = 15*Hz
+    # L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA',
+    #                            N=N_stim_PV,
+    #                            rate=stim_rate_PV,
+    #                            weight=w_ext_AMPA*2.5)
+    #
+    # L6 = column.layers['L6']
+    # cfg_L6 = CONFIG['layers']['L6']
+    # L6_PV_grp = L6.neuron_groups['PV']
+    # N_stim_L6_PV = 10
+    # stim_rate_L6_PV = 6*Hz
+    # L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
+    #                          N=N_stim_L6_PV,
+    #                          rate=stim_rate_L6_PV,
+    #                          weight=w_ext_AMPA*1.5)
+    # L6_E_grp = L6.neuron_groups['E']
+    # N_stim_L6_E = 10
+    # stim_rate_L6_E = 5*Hz
+    # L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
+    #                          N=N_stim_L6_E,
+    #                          rate=stim_rate_L6_E,
+    #                          weight=w_ext_AMPA*1.5)
+    #
+    # column.network.add(L6_E_stim, L6_PV_stim)
+    # column.network.add(L4C_PV_stim)
+    # column.network.run(stimuli_time* ms)
+    # ---- END STIMULUS BLOCK ----
 
+    # ---- SILENCING BLOCK (mimic Arch/Halo optogenetic silencing) ----
+    # Inject a strong hyperpolarizing current into a random subset of the
+    # target population for the "silencing" period. ~75% reflects typical
+    # opsin expression efficiency in PV-Cre / SOM-Cre lines; the remaining
+    # ~25% are "escapers" (cells that didn't express the opsin strongly).
+    silence_target_layer = 'L4C'
+    silence_target_pop = 'PV'
+    silence_fraction = 0.75
+    silence_current = -800 * pA   # bump to -1.5 nA if escapers still spike
 
-    column.network.add(L6_E_stim, L6_PV_stim)
-    column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
-    
+    silenced_grp = column.layers[silence_target_layer].neuron_groups[silence_target_pop]
+    n_total = len(silenced_grp)
+    n_silenced = int(silence_fraction * n_total)
+    silenced_idx = np.random.choice(n_total, n_silenced, replace=False)
 
+    I_array = np.zeros(n_total) * pA
+    I_array[silenced_idx] = silence_current
+    silenced_grp.I = I_array
 
-    column.network.run(stimuli_time* ms)
+    print(f"Silencing {n_silenced}/{n_total} {silence_target_layer} {silence_target_pop} "
+          f"cells with I = {silence_current/pA:.0f} pA "
+          f"({silence_fraction*100:.0f}%)")
+
+    column.network.run(stimuli_time * ms)
+    # ---- END SILENCING BLOCK ----
 
     print("Simulation complete")
     
