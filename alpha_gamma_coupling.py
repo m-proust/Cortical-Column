@@ -60,14 +60,20 @@ def morlet_tfr(sig, fs, freqs, n_cycles=5):
     return power
 
 
-def select_high_alpha_segments(alpha_env, fs, threshold_percentile=75,
-                                min_duration_ms=150, period_mask=None):
+def select_alpha_segments(alpha_env, fs, threshold_percentile=75,
+                           min_duration_ms=150, period_mask=None,
+                           band='high'):
 
     if period_mask is not None and np.any(period_mask):
         thresh = np.percentile(alpha_env[period_mask], threshold_percentile)
     else:
         thresh = np.percentile(alpha_env, threshold_percentile)
-    mask = alpha_env >= thresh
+    if band == 'high':
+        mask = alpha_env >= thresh
+    elif band == 'low':
+        mask = alpha_env <= thresh
+    else:
+        raise ValueError(f"band must be 'high' or 'low', got {band!r}")
     min_samps = int(min_duration_ms * fs / 1000)
     out = np.zeros_like(mask)
     start = None
@@ -94,7 +100,9 @@ def compute_alpha_peak_aligned_tfr(
     window_ms=300,
     n_cycles=5,
     high_alpha_percentile=75,
+    low_alpha_percentile=25,
     use_high_alpha=True,
+    alpha_band_select='high',
     stim_onset_ms=None,
     analysis_period='baseline',
     transient_ms=300,
@@ -130,10 +138,12 @@ def compute_alpha_peak_aligned_tfr(
     period_mask[t_start:t_end] = True
 
     if use_high_alpha:
-        ha_mask = select_high_alpha_segments(alpha_env, fs,
-                                              threshold_percentile=high_alpha_percentile,
-                                              min_duration_ms=min_ha_ms,
-                                              period_mask=period_mask)
+        pct = high_alpha_percentile if alpha_band_select == 'high' else low_alpha_percentile
+        ha_mask = select_alpha_segments(alpha_env, fs,
+                                         threshold_percentile=pct,
+                                         min_duration_ms=min_ha_ms,
+                                         period_mask=period_mask,
+                                         band=alpha_band_select)
     else:
         ha_mask = np.ones(n_samples, dtype=bool)
 
@@ -214,7 +224,220 @@ def compute_alpha_peak_aligned_tfr(
     return results
 
 
-def plot_alpha_gamma_coupling(results, title_suffix='', save_path=None):
+def compute_peak_aligned_tfr_raw(
+    bipolar_matrix,
+    channel_depths,
+    fs=1000,
+    alpha_band=(7, 14),
+    gamma_freqs=np.arange(15, 201, 2),
+    window_ms=300,
+    n_cycles=5,
+    stim_onset_ms=None,
+    analysis_period='baseline',
+    transient_ms=300,
+    warmup_ms=500,
+):
+    """Per-trial peak-aligned TFR with RAW (un-normalized) power, plus the
+    trial's mean alpha power in the analysis window. Used for the
+    across-trials median split (Bonnefond & Jensen 2015 Fig 2D style)."""
+    compartment_labels = classify_bipolar_channels(channel_depths)
+    n_channels, n_samples = bipolar_matrix.shape
+    window_samp = int(window_ms * fs / 1000)
+    warmup_samp = int(warmup_ms * fs / 1000)
+    if stim_onset_ms is not None:
+        onset_samp = int(stim_onset_ms * fs / 1000)
+        transient_samp = int(transient_ms * fs / 1000)
+        if analysis_period == 'baseline':
+            t_start, t_end = warmup_samp, onset_samp
+        elif analysis_period == 'stim':
+            t_start, t_end = onset_samp + transient_samp, n_samples
+        else:
+            t_start, t_end = warmup_samp, n_samples
+    else:
+        t_start, t_end = warmup_samp, n_samples
+
+    infra_idx = np.where(compartment_labels == 'infragranular')[0]
+    if len(infra_idx) == 0:
+        raise ValueError("zero infragranular channels found")
+    infra_mean = np.mean(bipolar_matrix[infra_idx], axis=0)
+
+    alpha_sig = bandpass(infra_mean, alpha_band[0], alpha_band[1], fs)
+    alpha_env = np.abs(hilbert(alpha_sig))
+
+    trial_alpha_power = float(np.mean(alpha_env[t_start:t_end] ** 2))
+
+    period_mask = np.zeros(n_samples, dtype=bool)
+    period_mask[t_start:t_end] = True
+
+    peaks = detect_peaks(alpha_sig)
+    valid_peaks = []
+    for p in peaks:
+        lo = p - window_samp
+        hi = p + window_samp
+        if lo >= 0 and hi < n_samples and period_mask[lo] and period_mask[hi - 1]:
+            valid_peaks.append(p)
+    valid_peaks = np.array(valid_peaks)
+
+    if len(valid_peaks) == 0:
+        return None
+
+    results = {
+        'trial_alpha_power': trial_alpha_power,
+        'n_epochs': len(valid_peaks),
+        'freqs': gamma_freqs,
+        'time_axis_ms': np.arange(-window_samp, window_samp) / fs * 1000,
+        'alpha_band': alpha_band,
+    }
+
+    for comp_name in ['supragranular', 'granular', 'infragranular']:
+        comp_idx = np.where(compartment_labels == comp_name)[0]
+        if len(comp_idx) == 0:
+            continue
+        comp_sig = np.mean(bipolar_matrix[comp_idx], axis=0)
+        tfr_full = morlet_tfr(comp_sig, fs, gamma_freqs, n_cycles=n_cycles)
+
+        epoch_len = 2 * window_samp
+        n_freqs = len(gamma_freqs)
+        tfr_epochs = np.zeros((len(valid_peaks), n_freqs, epoch_len))
+        for ei, pk in enumerate(valid_peaks):
+            tfr_epochs[ei] = tfr_full[:, pk - window_samp: pk + window_samp]
+        results[comp_name] = {
+            'tfr_raw_sum': np.sum(tfr_epochs, axis=0),
+            'n_epochs': len(valid_peaks),
+        }
+
+    return results
+
+
+def aggregate_trials_median_split(trial_dir, n_trials=None, analysis_period='baseline',
+                                   alpha_band=(7, 14), gamma_freqs=None,
+                                   window_ms=300, transient_ms=300, warmup_ms=500,
+                                   split='median', contrast='logratio'):
+    """Bonnefond & Jensen 2015 Fig 2D style: per-trial scalar alpha power,
+    split across trials, then contrast high-group vs low-group peak-locked TFR.
+
+    split: 'median' = 50/50 split, 'tertile' = top third vs bottom third.
+    contrast:
+      - 'logratio' (default): 10 * log10(high / low), in dB. Symmetric,
+        dimensionless. Standard for spectral group contrasts.
+      - 'normdiff': normalize each group TFR by its per-freq mean, then
+        subtract. Compares modulation shape, not magnitude.
+      - 'diff': raw arithmetic difference high - low."""
+    if gamma_freqs is None:
+        gamma_freqs = np.arange(15, 201, 2)
+
+    files = sorted(glob.glob(os.path.join(trial_dir, 'trial_*.npz')))
+    if n_trials is not None:
+        files = files[:n_trials]
+    if len(files) == 0:
+        raise FileNotFoundError(f"zero trial files found in {trial_dir}")
+
+    per_trial = []
+    for fpath in files:
+        trial = load_trial(fpath)
+        bipolar_matrix = trial['bipolar_matrix']
+        channel_depths = trial['channel_depths']
+        time_ms = trial['time_array_ms']
+        dt_ms = time_ms[1] - time_ms[0]
+        trial_fs = 1000.0 / dt_ms
+
+        stim_onset = float(trial.get('stim_onset_ms', 0))
+        if stim_onset == 0 and 'baseline_ms' in trial:
+            stim_onset = float(trial['baseline_ms'])
+
+        target_fs = 1000.0
+        if trial_fs > target_fs * 1.5:
+            ds_factor = int(round(trial_fs / target_fs))
+            bipolar_matrix = bipolar_matrix[:, ::ds_factor]
+            trial_fs = trial_fs / ds_factor
+
+        res = compute_peak_aligned_tfr_raw(
+            bipolar_matrix, channel_depths,
+            fs=trial_fs, alpha_band=alpha_band, gamma_freqs=gamma_freqs,
+            window_ms=window_ms,
+            stim_onset_ms=stim_onset if analysis_period != 'all' else None,
+            analysis_period=analysis_period,
+            transient_ms=transient_ms, warmup_ms=warmup_ms,
+        )
+        if res is None:
+            print(f"  skipping {os.path.basename(fpath)}: no valid peaks")
+            continue
+        per_trial.append(res)
+
+    if len(per_trial) < 2:
+        raise RuntimeError("need at least 2 trials with valid peaks for median split")
+
+    powers = np.array([t['trial_alpha_power'] for t in per_trial])
+    if split == 'tertile':
+        hi_thr = np.percentile(powers, 100 * 2 / 3)
+        lo_thr = np.percentile(powers, 100 * 1 / 3)
+        high_trials = [t for t, p in zip(per_trial, powers) if p >= hi_thr]
+        low_trials  = [t for t, p in zip(per_trial, powers) if p <= lo_thr]
+        print(f"  tertile split: {len(high_trials)} high (>= {hi_thr:.3g}), "
+              f"{len(low_trials)} low (<= {lo_thr:.3g}) | "
+              f"power range [{powers.min():.3g}, {powers.max():.3g}]")
+    else:
+        median = np.median(powers)
+        high_trials = [t for t, p in zip(per_trial, powers) if p >= median]
+        low_trials  = [t for t, p in zip(per_trial, powers) if p <  median]
+        print(f"  median split: {len(high_trials)} high-alpha, "
+              f"{len(low_trials)} low-alpha (median={median:.3g}) | "
+              f"power range [{powers.min():.3g}, {powers.max():.3g}]")
+
+    def group_mean(trials, comp):
+        sums = None
+        n_total = 0
+        for t in trials:
+            if comp not in t:
+                continue
+            if sums is None:
+                sums = np.zeros_like(t[comp]['tfr_raw_sum'])
+            sums += t[comp]['tfr_raw_sum']
+            n_total += t[comp]['n_epochs']
+        if sums is None or n_total == 0:
+            return None, 0
+        return sums / n_total, n_total
+
+    final = {
+        'time_axis_ms': per_trial[0]['time_axis_ms'],
+        'freqs': per_trial[0]['freqs'],
+        'alpha_band': alpha_band,
+        'n_high_trials': len(high_trials),
+        'n_low_trials': len(low_trials),
+    }
+    for comp in ['supragranular', 'granular', 'infragranular']:
+        high_mean, n_high = group_mean(high_trials, comp)
+        low_mean,  n_low  = group_mean(low_trials,  comp)
+        if high_mean is None or low_mean is None:
+            continue
+        if contrast == 'logratio':
+            safe_high = np.where(high_mean > 0, high_mean, 1e-30)
+            safe_low  = np.where(low_mean  > 0, low_mean,  1e-30)
+            contrast_tfr = 10.0 * np.log10(safe_high / safe_low)
+        elif contrast == 'normdiff':
+            h_base = np.mean(high_mean, axis=1, keepdims=True)
+            l_base = np.mean(low_mean,  axis=1, keepdims=True)
+            h_base[h_base == 0] = 1e-30
+            l_base[l_base == 0] = 1e-30
+            contrast_tfr = (high_mean / h_base) - (low_mean / l_base)
+        elif contrast == 'diff':
+            contrast_tfr = high_mean - low_mean
+        else:
+            raise ValueError(f"unknown contrast {contrast!r}")
+        final[comp] = {
+            'tfr_contrast': contrast_tfr,
+            'tfr_high': high_mean,
+            'tfr_low': low_mean,
+            'n_epochs_high': n_high,
+            'n_epochs_low': n_low,
+        }
+    final['contrast'] = contrast
+    final['split'] = split
+    return final
+
+
+def plot_alpha_gamma_coupling(results, title_suffix='', save_path=None,
+                              vmax_override=None):
   
     fig = plt.figure(figsize=(8, 12))
     gs = gridspec.GridSpec(4, 1, height_ratios=[1, 1, 1, 0.5], hspace=0.35)
@@ -231,13 +454,16 @@ def plot_alpha_gamma_coupling(results, title_suffix='', save_path=None):
     if 'alpha_band' in results:
         alpha_hi = results['alpha_band'][1]
 
-    vmax = 0
-    for comp in compartments:
-        if comp in results:
-            vmax = max(vmax, np.max(np.abs(results[comp]['tfr_pct'])))
-    if vmax == 0:
-        vmax = 20
-    vmax = min(vmax, 100)
+    if vmax_override is not None:
+        vmax = vmax_override
+    else:
+        vmax = 0
+        for comp in compartments:
+            if comp in results:
+                vmax = max(vmax, np.max(np.abs(results[comp]['tfr_pct'])))
+        if vmax == 0:
+            vmax = 20
+        vmax = min(vmax, 100)
 
     for i, (comp, comp_title) in enumerate(zip(compartments, compartment_titles)):
         ax = fig.add_subplot(gs[i])
@@ -295,6 +521,65 @@ def plot_alpha_gamma_coupling(results, title_suffix='', save_path=None):
     return fig
 
 
+def plot_median_split_contrast(results, title_suffix='', save_path=None):
+    """Bonnefond & Jensen 2015 Fig 2D style: high-alpha-trials minus low-alpha-trials,
+    peak-locked TFR contrast per cortical compartment."""
+    fig = plt.figure(figsize=(8, 10))
+    gs = gridspec.GridSpec(3, 1, hspace=0.35)
+
+    compartments = ['supragranular', 'granular', 'infragranular']
+    titles = ['Supragranular', 'Granular', 'Infragranular']
+
+    vmax = 0
+    for comp in compartments:
+        if comp in results:
+            vmax = max(vmax, np.max(np.abs(results[comp]['tfr_contrast'])))
+    if vmax == 0:
+        vmax = 1.0
+
+    for i, (comp, t) in enumerate(zip(compartments, titles)):
+        ax = fig.add_subplot(gs[i])
+        if comp in results:
+            r = results[comp]
+            norm = TwoSlopeNorm(vmin=-vmax, vcenter=0, vmax=vmax)
+            im = ax.pcolormesh(
+                results['time_axis_ms'], results['freqs'], r['tfr_contrast'],
+                cmap='RdBu_r', norm=norm, shading='auto',
+            )
+            mode = results.get('contrast', 'diff')
+            cbar_label = {
+                'logratio': '10·log10(high / low)  [dB]',
+                'normdiff': 'high − low (normalized)',
+                'diff':     'high − low (raw power)',
+            }.get(mode, mode)
+            fig.colorbar(im, ax=ax, label=cbar_label, shrink=0.8)
+            ax.set_title(f'{t}  (high: {r["n_epochs_high"]} ep / '
+                         f'low: {r["n_epochs_low"]} ep)',
+                         fontsize=11, fontweight='bold')
+            alpha_hi = results.get('alpha_band', (7, 14))[1]
+            ax.axhline(alpha_hi, color='white', ls='--', lw=1.2, alpha=0.8)
+        else:
+            ax.text(0.5, 0.5, 'No channels', transform=ax.transAxes,
+                    ha='center', va='center')
+        ax.set_ylabel('Frequency (Hz)')
+        if i == len(compartments) - 1:
+            ax.set_xlabel('Time relative to alpha peak (ms)')
+
+    split_name = results.get('split', 'median')
+    mode = results.get('contrast', 'diff')
+    fig.suptitle(f'Peak-locked TFR contrast: high vs low alpha trials '
+                 f'[{split_name} split, {mode}] '
+                 f'(n={results["n_high_trials"]} vs {results["n_low_trials"]}) '
+                 f'{title_suffix}',
+                 fontsize=12, fontweight='bold', y=0.99)
+
+    if save_path:
+        fig.savefig(save_path, dpi=200, bbox_inches='tight')
+        print(f"  Saved figure to {save_path}")
+    plt.close(fig)
+    return fig
+
+
 def load_trial(fpath):
     d = np.load(fpath, allow_pickle=True)
     out = {}
@@ -305,6 +590,7 @@ def load_trial(fpath):
 
 def aggregate_trials(trial_dir, n_trials=None, analysis_period='all',
                      use_high_alpha=True, high_alpha_percentile=75,
+                     low_alpha_percentile=25, alpha_band_select='high',
                      alpha_band=(7, 14), gamma_freqs=None,
                      window_ms=300, fs=10000, transient_ms=300,
                      warmup_ms=500, min_ha_ms=150):
@@ -352,7 +638,9 @@ def aggregate_trials(trial_dir, n_trials=None, analysis_period='all',
             window_ms=window_ms,
             n_cycles=5,
             high_alpha_percentile=high_alpha_percentile,
+            low_alpha_percentile=low_alpha_percentile,
             use_high_alpha=use_high_alpha,
+            alpha_band_select=alpha_band_select,
             stim_onset_ms=stim_onset if analysis_period != 'all' else None,
             analysis_period=analysis_period,
             transient_ms=transient_ms,
@@ -438,6 +726,14 @@ def main():
                         help='Half-window around alpha peak (ms)')
     parser.add_argument('--percentile', type=float, default=75.0,
                         help='Percentile for high-alpha threshold')
+    parser.add_argument('--low_percentile', type=float, default=25.0,
+                        help='Percentile for low-alpha threshold')
+    parser.add_argument('--split', type=str, default='tertile',
+                        choices=['median', 'tertile'],
+                        help='Across-trials split for contrast (default: tertile)')
+    parser.add_argument('--contrast', type=str, default='logratio',
+                        choices=['logratio', 'normdiff', 'diff'],
+                        help='Group contrast: logratio (default, 10·log10 dB), normdiff, or raw diff')
     parser.add_argument('--transient_ms', type=float, default=300.0,
                         help='Duration of post-stimulus transient to exclude (ms)')
     parser.add_argument('--warmup_ms', type=float, default=500.0,
@@ -460,13 +756,13 @@ def main():
 
     for period in periods:
 
-
-        final = aggregate_trials(
+        common_kwargs = dict(
             trial_dir=args.trial_dir,
             n_trials=args.n_trials,
             analysis_period=period,
             use_high_alpha=not args.no_high_alpha,
             high_alpha_percentile=args.percentile,
+            low_alpha_percentile=args.low_percentile,
             alpha_band=(args.alpha_lo, args.alpha_hi),
             gamma_freqs=gamma_freqs,
             window_ms=args.window_ms,
@@ -475,28 +771,52 @@ def main():
             min_ha_ms=args.min_ha_ms,
         )
 
-        suffix = f'  [{period}]'
-        fig_path = os.path.join(save_dir, f'alpha_gamma_coupling_{period}.png')
-        plot_alpha_gamma_coupling(final, title_suffix=suffix, save_path=fig_path)
+        print(f"\n=== {period} | HIGH alpha (>= p{args.percentile:.0f}) ===")
+        final_high = aggregate_trials(alpha_band_select='high', **common_kwargs)
 
-        if not args.no_high_alpha:
-            final_all = aggregate_trials(
-                trial_dir=args.trial_dir,
-                n_trials=args.n_trials,
-                analysis_period=period,
-                use_high_alpha=False,
-                alpha_band=(args.alpha_lo, args.alpha_hi),
-                gamma_freqs=gamma_freqs,
-                window_ms=args.window_ms,
-                transient_ms=args.transient_ms,
-                warmup_ms=args.warmup_ms,
-                min_ha_ms=args.min_ha_ms,
-            )
-            fig_path2 = os.path.join(save_dir,
-                                      f'alpha_gamma_coupling_{period}_all_data.png')
-            plot_alpha_gamma_coupling(final_all,
-                                      title_suffix=f'{suffix} (all data, no high alpha selection)',
-                                      save_path=fig_path2)
+        print(f"\n=== {period} | LOW alpha (<= p{args.low_percentile:.0f}) ===")
+        final_low = aggregate_trials(alpha_band_select='low', **common_kwargs)
+
+        shared_vmax = 0
+        for res in (final_high, final_low):
+            for comp in ('supragranular', 'granular', 'infragranular'):
+                if comp in res:
+                    shared_vmax = max(shared_vmax, np.max(np.abs(res[comp]['tfr_pct'])))
+        if shared_vmax == 0:
+            shared_vmax = 20
+        shared_vmax = min(shared_vmax, 100)
+
+        fig_path_high = os.path.join(save_dir, f'alpha_gamma_coupling_{period}_high.png')
+        plot_alpha_gamma_coupling(final_high,
+                                  title_suffix=f'  [{period} | high alpha]',
+                                  save_path=fig_path_high,
+                                  vmax_override=shared_vmax)
+
+        fig_path_low = os.path.join(save_dir, f'alpha_gamma_coupling_{period}_low.png')
+        plot_alpha_gamma_coupling(final_low,
+                                  title_suffix=f'  [{period} | low alpha]',
+                                  save_path=fig_path_low,
+                                  vmax_override=shared_vmax)
+
+        print(f"\n=== {period} | median-split across trials (Bonnefond & Jensen 2015 style) ===")
+        final_contrast = aggregate_trials_median_split(
+            trial_dir=args.trial_dir,
+            n_trials=args.n_trials,
+            analysis_period=period,
+            alpha_band=(args.alpha_lo, args.alpha_hi),
+            gamma_freqs=gamma_freqs,
+            window_ms=args.window_ms,
+            transient_ms=args.transient_ms,
+            warmup_ms=args.warmup_ms,
+            split=args.split,
+            contrast=args.contrast,
+        )
+        fig_path_contrast = os.path.join(
+            save_dir,
+            f'alpha_gamma_coupling_{period}_contrast_{args.split}_{args.contrast}.png')
+        plot_median_split_contrast(final_contrast,
+                                    title_suffix=f'[{period}]',
+                                    save_path=fig_path_contrast)
 
 
 if __name__ == '__main__':

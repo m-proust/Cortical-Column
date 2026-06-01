@@ -10,43 +10,50 @@ from scipy.ndimage import gaussian_filter1d
 from scipy import signal as scipy_signal
 
 
+POP_COLORS = {
+    'E':   '#2E8B57',  # sea green
+    'PV':  '#C0392B',  # crimson
+    'SOM': '#1F4E96',  # deep blue
+    'VIP': '#D4A017',  # amber gold
+}
+
 
 def plot_raster(spike_monitors, baseline_time, stimuli_time, layer_configs, figsize=(15, 10)):
     fig, axes = plt.subplots(len(spike_monitors), 1, figsize=figsize)
     if len(spike_monitors) == 1:
         axes = [axes]
-    
+
     for i, (layer_name, monitors) in enumerate(spike_monitors.items()):
         ax = axes[i]
         config = layer_configs[layer_name]
-        
+
         if 'E_spikes' in monitors:
             ax.scatter(monitors['E_spikes'].t/second, monitors['E_spikes'].i,
-                        color='green', s=0.5, alpha=0.6, label="E")
-        
+                        color=POP_COLORS['E'], s=0.5, alpha=0.55, label="E")
+
         if 'SOM_spikes' in monitors:
-            ax.scatter(monitors['SOM_spikes'].t/second, 
+            ax.scatter(monitors['SOM_spikes'].t/second,
                         monitors['SOM_spikes'].i + config['neuron_counts']['E'],
-                        color='blue', s=0.5, alpha=0.8, label="SOM")
-        
+                        color=POP_COLORS['SOM'], s=0.5, alpha=0.7, label="SOM")
+
         if 'PV_spikes' in monitors:
             if 'SOM_spikes' in monitors:
                 ax.scatter(monitors['PV_spikes'].t/second,
                         monitors['PV_spikes'].i + config['neuron_counts']['E'] + config['neuron_counts']['SOM'],
-                        color='red', s=0.5, alpha=0.8, label="PV")
+                        color=POP_COLORS['PV'], s=0.5, alpha=0.7, label="PV")
             else:
                 ax.scatter(monitors['PV_spikes'].t/second,
                             monitors['PV_spikes'].i + config['neuron_counts']['E'],
-                            color='red', s=0.5, alpha=0.8, label="PV")
+                            color=POP_COLORS['PV'], s=0.5, alpha=0.7, label="PV")
             ########TO IMPROVE###############
         if 'VIP_spikes' in monitors:
             if layer_name == 'L1':
                 ax.scatter(monitors['VIP_spikes'].t/second, monitors['VIP_spikes'].i,
-                        color='gold', s=0.5, alpha=0.8, label="VIP")
+                        color=POP_COLORS['VIP'], s=0.5, alpha=0.7, label="VIP")
             else :
                 ax.scatter(monitors['VIP_spikes'].t/second,
                         monitors['VIP_spikes'].i + config['neuron_counts']['E'] + config['neuron_counts']['SOM'] + config['neuron_counts']['PV'],
-                        color='gold', s=0.5, alpha=0.8, label="VIP")
+                        color=POP_COLORS['VIP'], s=0.5, alpha=0.7, label="VIP")
         x_lim = (baseline_time + stimuli_time)/1000
         ax.set_xlim(0.3, x_lim)
         ax.set_ylabel('Neuron index')
@@ -181,19 +188,19 @@ def plot_rate(rate_monitors, layer_configs, baseline_time, stim_time, figsize=(1
     if n_layers == 1:
         axes = [axes]
     
-    pop_colors = {'E': 'royalblue', 'PV': 'darkorange', 'SOM': 'forestgreen'}
-    
+    pop_colors = POP_COLORS
+
     for ax, layer_name in zip(axes, layer_names):
         layer_rates = rate_monitors.get(layer_name, {})
         plotted_any = False
         stats_text = []
-        
+
         for pop_key in sorted(layer_rates.keys()):
             mon = layer_rates[pop_key]
             try:
                 t = mon.t / ms
                 r = mon.smooth_rate(window='flat', width=smooth_window) / Hz
-                
+
                 pop_name = pop_key.split('_')[0] if '_' in pop_key else pop_key
                 color = pop_colors.get(pop_name, 'gray')
                 
@@ -282,7 +289,47 @@ def plot_bipolar_lfp(bipolar_signals, channel_labels, channel_depths, time_array
     plt.tight_layout()
     return fig
 
-def plot_lfp_comparison(lfp_signals, bipolar_signals, time_array, electrode_positions, 
+def plot_bipolar_stack(bipolar_signals, channel_depths, time_array,
+                       time_range=None, color='#ff6d1e', figsize=(12, 8),
+                       scale=None, linewidth=0.8):
+
+    n_bipolar = len(bipolar_signals)
+    if time_range is None:
+        time_range = (float(time_array[0]), float(time_array[-1]))
+
+    time_mask = (time_array >= time_range[0]) & (time_array <= time_range[1])
+    time_plot = time_array[time_mask]
+
+    depths = np.asarray(channel_depths, dtype=float)
+    if len(depths) > 1:
+        spacing = np.min(np.abs(np.diff(np.sort(depths))))
+    else:
+        spacing = 1.0
+
+    if scale is None:
+        max_amp = 0.0
+        for ch_idx in bipolar_signals:
+            seg = bipolar_signals[ch_idx][time_mask]
+            if seg.size:
+                max_amp = max(max_amp, float(np.max(np.abs(seg - np.mean(seg)))))
+        scale = (0.8 * spacing / max_amp) if max_amp > 0 else 1.0
+
+    fig, ax = plt.subplots(figsize=figsize, facecolor='white')
+    ax.set_facecolor('white')
+
+    for i, ch_idx in enumerate(bipolar_signals):
+        lfp = bipolar_signals[ch_idx][time_mask]
+        lfp_centered = lfp - np.mean(lfp)
+        ax.plot(time_plot, lfp_centered * scale + depths[i],
+                color=color, linewidth=linewidth, alpha=0.9)
+
+    ax.set_xlim(time_range)
+    ax.set_axis_off()
+    plt.tight_layout()
+    return fig
+
+
+def plot_lfp_comparison(lfp_signals, bipolar_signals, time_array, electrode_positions,
                         channel_labels, channel_depths, figsize=(18, 12), time_range=(0, 1000)):
 
     n_monopolar = len(lfp_signals)
@@ -455,6 +502,214 @@ def plot_bipolar_power_comparison_kernel(bipolar_signals, channel_labels, channe
                       fontsize=12, fontweight='bold')
 
     plt.tight_layout()
+    return fig
+
+
+def plot_mean_rates_bar(rate_monitors, layer_configs, baseline_time, stimuli_time,
+                        transient_skip=300, figsize=(12, 6)):
+  
+    layer_names = list(layer_configs.keys()) if isinstance(layer_configs, dict) else list(rate_monitors.keys())
+
+    pop_colors = POP_COLORS
+    pop_order = ['E', 'PV', 'SOM', 'VIP']
+
+    total_time = baseline_time + stimuli_time
+
+    means = {p: [] for p in pop_order}
+    sems = {p: [] for p in pop_order}
+
+    for layer_name in layer_names:
+        layer_rates = rate_monitors.get(layer_name, {})
+        layer_pops = {}
+        for pop_key, mon in layer_rates.items():
+            pop_name = pop_key.split('_')[0] if '_' in pop_key else pop_key
+            layer_pops[pop_name] = mon
+
+        for pop in pop_order:
+            if pop in layer_pops:
+                mon = layer_pops[pop]
+                t = mon.t / ms
+                r = mon.smooth_rate(window='flat', width=15*ms) / Hz
+                mask = (t >= transient_skip) & (t <= total_time)
+                if np.sum(mask) > 0:
+                    means[pop].append(float(np.mean(r[mask])))
+                    sems[pop].append(float(np.std(r[mask]) / np.sqrt(np.sum(mask))))
+                else:
+                    means[pop].append(np.nan)
+                    sems[pop].append(0.0)
+            else:
+                means[pop].append(np.nan)
+                sems[pop].append(0.0)
+
+    n_layers = len(layer_names)
+    x = np.arange(n_layers)
+    pops_present = [p for p in pop_order if not all(np.isnan(means[p]))]
+    n_pops = len(pops_present)
+    bar_width = 0.8 / max(n_pops, 1)
+
+    header = f"{'Layer':<8}" + "".join(f"{p:>16}" for p in pops_present)
+    print(f"\nMean firing rates (Hz)  [t > {transient_skip} ms]")
+    print(header)
+    print("-" * len(header))
+    for li, layer_name in enumerate(layer_names):
+        row = f"{layer_name:<8}"
+        for p in pops_present:
+            m = means[p][li]
+            s = sems[p][li]
+            row += f"{m:>8.2f} ± {s:<5.2f}" if not np.isnan(m) else f"{'-':>16}"
+        print(row)
+    print()
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    for i, pop in enumerate(pops_present):
+        offset = (i - (n_pops - 1) / 2) * bar_width
+        vals = np.array(means[pop])
+        errs = np.array(sems[pop])
+        ax.bar(x + offset, vals, bar_width,
+               yerr=errs, capsize=3,
+               color=pop_colors.get(pop, 'gray'),
+               edgecolor='black', linewidth=0.6,
+               label=pop, alpha=0.92,
+               error_kw={'elinewidth': 0.8, 'ecolor': '0.2'})
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(layer_names, fontsize=12)
+    ax.set_ylabel('Mean firing rate (Hz)', fontsize=13)
+    ax.set_xlabel('Layer', fontsize=13)
+    ax.set_title(f'Mean population firing rates',
+                 fontsize=14, fontweight='bold')
+    ax.legend(title='Population', frameon=True, framealpha=0.95,
+              fontsize=11, title_fontsize=11, loc='upper right')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.yaxis.grid(True, alpha=0.3, linestyle='--')
+    ax.set_axisbelow(True)
+
+    plt.tight_layout()
+    return fig
+
+
+def plot_lfp_power_global(lfp_signals, time_array, electrode_positions,
+                          transient_skip=300, fs=10000, fmax=100,
+                          smooth_sigma=2.0, figsize=(9, 14)):
+
+    dt = time_array[1] - time_array[0]
+    start_idx = int(transient_skip / dt)
+
+    n_electrodes = lfp_signals.shape[0]
+    depths = np.array([electrode_positions[i][2] for i in range(n_electrodes)])
+
+    cmap = plt.get_cmap('viridis')
+    d_min, d_max = depths.min(), depths.max()
+    norm = plt.Normalize(vmin=d_min, vmax=d_max)
+
+    fig, axes = plt.subplots(n_electrodes, 1, figsize=figsize, sharex=True)
+    if n_electrodes == 1:
+        axes = [axes]
+
+    seg = lfp_signals[0, start_idx:]
+    nperseg = 100 * min(1024, len(seg) // 4)
+
+    for i in range(n_electrodes):
+        ax = axes[i]
+        lfp = lfp_signals[i, start_idx:]
+        freq, psd = scipy_signal.welch(lfp, fs=fs, nperseg=nperseg, window='hann')
+        mask = freq <= fmax
+        f = freq[mask]
+        p = gaussian_filter1d(psd[mask], sigma=smooth_sigma)
+
+        color = cmap(norm(depths[i]))
+        ax.plot(f, p, color=color, linewidth=1.6, alpha=0.95)
+
+        peak_idx = int(np.argmax(p))
+        peak_f = f[peak_idx]
+        peak_p = p[peak_idx]
+        ax.plot(peak_f, peak_p, 'o', color='black', markersize=5,
+                markerfacecolor=color, markeredgewidth=1.2)
+        ax.annotate(f'{peak_f:.1f} Hz',
+                    xy=(peak_f, peak_p),
+                    xytext=(6, 0), textcoords='offset points',
+                    fontsize=9, va='center', color='black')
+
+        ax.set_yscale('log')
+        ax.set_ylabel(f'Elec {i}', fontsize=10, rotation=0,
+                      ha='right', va='center', labelpad=15)
+        ax.tick_params(axis='y', labelsize=8)
+        ax.grid(True, which='both', alpha=0.3, linestyle='--')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+
+    axes[-1].set_xlabel('Frequency (Hz)', fontsize=13)
+    axes[-1].set_xlim(0, fmax)
+    axes[0].set_title('LFP power spectra across electrodes',
+                      fontsize=14, fontweight='bold')
+
+    plt.tight_layout(h_pad=0.3)
+    return fig
+
+
+def plot_bipolar_power_global(bipolar_signals, channel_labels, channel_depths, time_array,
+                              baseline_time=2000, pre_stim_duration=500,
+                              fs=10000, fmax=100,
+                              figsize=(9, 14)):
+    """Stacked bipolar LFP power spectra over the pre-stim window (same window as
+    plot_bipolar_power_comparison_kernel). One subplot per channel, shared x-axis,
+    raw Welch PSD (no smoothing), peak marked on each curve."""
+    dt = time_array[1] - time_array[0]
+    pre_start_idx = int((baseline_time - pre_stim_duration) / dt)
+    pre_end_idx = int(baseline_time / dt)
+
+    ch_keys = list(bipolar_signals.keys())
+    n_channels = len(ch_keys)
+    depths = np.array([channel_depths[k] for k in ch_keys])
+
+    cmap = plt.get_cmap('viridis')
+    d_min, d_max = depths.min(), depths.max()
+    norm = plt.Normalize(vmin=d_min, vmax=d_max)
+
+    fig, axes = plt.subplots(n_channels, 1, figsize=figsize, sharex=True)
+    if n_channels == 1:
+        axes = [axes]
+
+    first = bipolar_signals[ch_keys[0]][pre_start_idx:pre_end_idx]
+    nperseg = 100 * min(1024, len(first) // 4)
+
+    for i, k in enumerate(ch_keys):
+        ax = axes[i]
+        sig = bipolar_signals[k][pre_start_idx:pre_end_idx]
+        freq, psd = scipy_signal.welch(sig, fs=fs, nperseg=nperseg, window='hann')
+        mask = freq <= fmax
+        f = freq[mask]
+        p = psd[mask]
+
+        color = cmap(norm(depths[i]))
+        ax.plot(f, p, color=color, linewidth=1.6, alpha=0.95)
+
+        peak_idx = int(np.argmax(p))
+        peak_f = f[peak_idx]
+        peak_p = p[peak_idx]
+        ax.plot(peak_f, peak_p, 'o', color='black', markersize=5,
+                markerfacecolor=color, markeredgewidth=1.2)
+        ax.annotate(f'{peak_f:.1f} Hz',
+                    xy=(peak_f, peak_p),
+                    xytext=(6, 0), textcoords='offset points',
+                    fontsize=9, va='center', color='black')
+
+        ax.set_yscale('log')
+        ax.set_ylabel(f'{channel_labels[k]}', fontsize=10, rotation=0,
+                      ha='right', va='center', labelpad=15)
+        ax.tick_params(axis='y', labelsize=8)
+        ax.grid(True, which='both', alpha=0.3, linestyle='--')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+
+    axes[-1].set_xlabel('Frequency (Hz)', fontsize=13)
+    axes[-1].set_xlim(0, fmax)
+    axes[0].set_title('Bipolar LFP power spectra across channels',
+                      fontsize=14, fontweight='bold')
+
+    plt.tight_layout(h_pad=0.3)
     return fig
 
 

@@ -1,12 +1,10 @@
-import os
-import glob
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import TwoSlopeNorm
 from scipy import signal
 from scipy.signal import detrend
 from scipy.signal.windows import dpss
-from scipy.ndimage import gaussian_filter1d
+from scipy.ndimage import zoom
 import seaborn as sns
 
 
@@ -14,35 +12,13 @@ plt.rcParams.update({
     'mathtext.fontset': 'stix',
     'font.family': 'STIXGeneral',
 })
-plt.style.use('seaborn-v0_8-darkgrid')
+plt.style.use('seaborn-v0_8-whitegrid')
 sns.set_palette('Paired')
-
-
-SMOOTH_HZ = 1.5      # gaussian sigma along freq axis (Hz). 0 disables.
-SMOOTH_DEPTH = 0.6   # gaussian sigma along depth axis (channels). 0 disables.
-NW_TAPER = 3         # multitaper time-bandwidth (was 2 -> smoother now).
-
-
-def _smooth_psd(psd, freqs, sigma_hz=SMOOTH_HZ, sigma_depth=SMOOTH_DEPTH):
-    """Light 2D smoothing of a (channels x freq) PSD image.
-
-    Smooths along freq (in Hz) and a tiny bit along depth (in channels)
-    to kill horizontal striping while preserving spectral peaks.
-    """
-    if psd is None:
-        return psd
-    out = psd.astype(float, copy=True)
-    if sigma_hz and sigma_hz > 0:
-        df = float(np.median(np.diff(freqs)))
-        if df > 0:
-            sigma_bins = sigma_hz / df
-            if sigma_bins >= 0.5:
-                out = gaussian_filter1d(out, sigma=sigma_bins,
-                                        axis=-1, mode='nearest')
-    if sigma_depth and sigma_depth > 0:
-        out = gaussian_filter1d(out, sigma=sigma_depth,
-                                axis=0, mode='nearest')
-    return out
+plt.rcParams.update({
+    'figure.facecolor': 'white',
+    'axes.facecolor': 'white',
+    'savefig.facecolor': 'white',
+})
 
 
 def load_trials(base_path, n_trials):
@@ -78,7 +54,7 @@ def load_trials(base_path, n_trials):
         all_trials.append(trial_data)
     return all_trials
 
-def multitaper_psd(data, fs, NW=NW_TAPER, nfft=None):
+def multitaper_psd(data, fs, NW=2, nfft=None):
     data_demeaned = data - np.mean(data)
     if nfft is None:
         nfft = 2 ** int(np.ceil(np.log2(len(data_demeaned))))
@@ -111,10 +87,7 @@ def plot_laminar_spectral_profile(all_trials,
                                   remove_mean=True,
                                   do_detrend=True,
                                   lfp_key='bipolar_lfp',
-                                  title_suffix=None,
-                                  save_path=None,
-                                  show=True,
-                                  smooth=True):
+                                  title_suffix=None):
 
     for i, tr in enumerate(all_trials):
         if lfp_key not in tr:
@@ -164,8 +137,8 @@ def plot_laminar_spectral_profile(all_trials,
                 post -= np.mean(post)
 
             nfft = 2 ** int(np.ceil(np.log2(min(len(pre), len(post)))))
-            f, psd_pre = multitaper_psd(pre, fs=fs, NW=NW_TAPER, nfft=nfft)
-            _, psd_post = multitaper_psd(post, fs=fs, NW=NW_TAPER, nfft=nfft)
+            f, psd_pre = multitaper_psd(pre, fs=fs, NW=2, nfft=nfft)
+            _, psd_post = multitaper_psd(post, fs=fs, NW=2, nfft=nfft)
 
             pre_trials.append(psd_pre)
             post_trials.append(psd_post)
@@ -195,16 +168,9 @@ def plot_laminar_spectral_profile(all_trials,
     psd_pre = psd_pre[:, freq_mask]
     psd_post = psd_post[:, freq_mask]
 
-    if smooth:
-        psd_pre = _smooth_psd(psd_pre, f_plot)
-        psd_post = _smooth_psd(psd_post, f_plot)
-
     psd_pre_db = 10 * np.log10(psd_pre + 1e-10)
     psd_post_db = 10 * np.log10(psd_post + 1e-10)
     pct_change = (psd_post - psd_pre) / psd_pre * 100
-    if smooth:
-        pct_change = _smooth_psd(pct_change, f_plot,
-                                 sigma_hz=SMOOTH_HZ, sigma_depth=SMOOTH_DEPTH)
 
     psd_pre_db = np.flipud(psd_pre_db)
     psd_post_db = np.flipud(psd_post_db)
@@ -256,78 +222,122 @@ def plot_laminar_spectral_profile(all_trials,
         }.get(lfp_key, f' ({lfp_key})')
 
     plt.suptitle('Laminar Spectral Profile' + title_suffix, fontsize=16)
+    plt.show()
 
-    if save_path is not None:
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        fig.savefig(save_path, dpi=140, bbox_inches='tight')
-        print(f"  saved {save_path}")
-    if show:
-        plt.show()
-    else:
-        plt.close(fig)
+    plot_laminar_pct_change_3d(f_plot, depths, pct_change,
+                               title_suffix=title_suffix)
 
     return f_plot, depths, psd_pre_db, psd_post_db, pct_change
 
 
-def _count_trials(sweep_dir):
-    return len(sorted(glob.glob(os.path.join(sweep_dir, "trial_*.npz"))))
+def plot_laminar_pct_change_3d(freqs, depths, pct_change,
+                               upsample_depth=8, smooth_freq=4,
+                               clip_percentile=99,
+                               title_suffix=''):
+    """3D surface of % power change (freq x depth).
 
+    Styling mirrors plot_pct_change_3d_surfaces in plot_interlayer_p_sweep.py:
+    cubic-spline upsample along depth, light freq smoothing, asymmetric
+    data-driven color scale centered on 0, RdBu_r diverging map, contour
+    projection on the floor.
 
-def _process_sweep(sweep_dir, fig_root, common):
-    name = os.path.basename(sweep_dir.rstrip('/'))
-    n_trials = _count_trials(sweep_dir)
-    if n_trials == 0:
-        print(f"[{name}] no trials, skip")
-        return
+    pct_change is expected as returned upstream (flipped so row 0 = top of
+    cortex). We rebuild a monotonic depth axis to match.
+    """
+    pct = np.asarray(pct_change)  # (n_channels, n_freqs)
+    # pct_change is passed in already flipud'd so row 0 = top of cortex
+    # (most superficial = largest z). Match the depth axis to that ordering.
+    depth_axis = np.linspace(depths.max(), depths.min(), pct.shape[0])
 
-    print(f"\n=== {name}  ({n_trials} trials) ===")
-    all_trials = load_trials(sweep_dir, n_trials)
-    out_dir = os.path.join(fig_root, name)
+    if upsample_depth and upsample_depth > 1 and pct.shape[0] > 1:
+        pct_up = zoom(pct, (upsample_depth, 1), order=3)
+        d_up = np.linspace(depth_axis[0], depth_axis[-1], pct_up.shape[0])
+    else:
+        pct_up = pct
+        d_up = depth_axis
 
-    plot_laminar_spectral_profile(
-        all_trials, lfp_key='bipolar_lfp',
-        save_path=os.path.join(out_dir, f"{name}_bipolar.png"),
-        show=False, smooth=True, **common)
+    if smooth_freq and smooth_freq > 1:
+        kernel = np.ones(smooth_freq) / smooth_freq
+        pct_up = np.apply_along_axis(
+            lambda v: np.convolve(v, kernel, mode='same'), 1, pct_up)
 
-    plot_laminar_spectral_profile(
-        all_trials, lfp_key='lfp_matrix',
-        save_path=os.path.join(out_dir, f"{name}_kernel.png"),
-        show=False, smooth=True, **common)
+    neg = pct_up[pct_up < 0]
+    vmin = np.percentile(neg, 100 - clip_percentile) if neg.size else -1.0
+    vmin = min(vmin, -1.0)
+    pos = pct_up[pct_up > 0]
+    vmax = np.percentile(pos, clip_percentile) if pos.size else 1.0
+    vmax = max(vmax, 1.0)
 
-    if 'lfp_current_matrix' in all_trials[0]:
-        plot_laminar_spectral_profile(
-            all_trials, lfp_key='lfp_current_matrix',
-            save_path=os.path.join(out_dir, f"{name}_current.png"),
-            show=False, smooth=True, **common)
-        for tr in all_trials:
-            tr['bipolar_lfp_current'] = np.diff(tr['lfp_current_matrix'], axis=0)
-        plot_laminar_spectral_profile(
-            all_trials, lfp_key='bipolar_lfp_current',
-            title_suffix=' (Bipolar synaptic current)',
-            save_path=os.path.join(out_dir, f"{name}_bipolar_current.png"),
-            show=False, smooth=True, **common)
+    fig = plt.figure(figsize=(10, 7), facecolor='white')
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_facecolor('white')
+    ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+    ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+    ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+    F, D = np.meshgrid(freqs, d_up)
+    norm = TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
+    surf = ax.plot_surface(F, D, pct_up, cmap='RdBu_r', norm=norm,
+                           edgecolor='none', alpha=0.95, antialiased=True,
+                           rcount=80, ccount=80)
+    z_floor = float(np.nanmin(pct_up))
+    z_ceil = float(np.nanmax(pct_up))
+    ax.set_zlim(z_floor, z_ceil)
+    ax.contour(F, D, pct_up, zdir='z', offset=z_floor,
+               cmap='RdBu_r', norm=norm, levels=12)
+
+    ax.set_xlabel('Frequency (Hz)', fontsize=9)
+    ax.set_ylabel('Laminar depth', fontsize=9)
+    ax.set_zlabel('% change', fontsize=9)
+    ax.set_title(f'3D stimulus-induced % change  [{vmin:+.0f}, {vmax:+.0f}]%'
+                 + title_suffix, fontsize=12)
+    ax.view_init(elev=25, azim=-60)
+    fig.colorbar(surf, ax=ax, shrink=0.55, pad=0.08, label='% change')
+    fig.tight_layout()
+    plt.show()
+    return fig
 
 
 if __name__ == '__main__':
-    SWEEP_ROOT = 'results/trials2_pop_sweep'
-    FIG_ROOT = os.path.join(SWEEP_ROOT, 'figures_laminar')
+    base_path = 'results/trials3_21_05'
+    n_trials = 10
+
+
+    all_trials = load_trials(base_path, n_trials)
+
+    print(f'Loaded {len(all_trials)} trials')
+    print(f"Time range: {all_trials[0]['time'][0]:.1f} to "
+          f"{all_trials[0]['time'][-1]:.1f} ms")
+    print(f"Stimulus onset: {all_trials[0]['stim_onset_ms']:.1f} ms")
+    print(f"Number of bipolar channels: {all_trials[0]['bipolar_lfp'].shape[0]}")
+    print(f"Sampling rate (kernel): "
+          f"~{1000 / np.mean(np.diff(all_trials[0]['time'])):.0f} Hz")
+    if 'time_current_ms' in all_trials[0]:
+        print(f"Sampling rate (current): "
+              f"~{1000 / np.mean(np.diff(all_trials[0]['time_current_ms'])):.0f} Hz")
 
     common = dict(
         pre_window_ms=500,
         post_window_ms=500,
-        post_start_ms=200,
+        post_start_ms=500,
         freq_range=(0, 120),
         log_freq=False,
         remove_mean=True,
         do_detrend=True,
     )
 
-    sweep_dirs = sorted(
-        d for d in glob.glob(os.path.join(SWEEP_ROOT, '*'))
-        if os.path.isdir(d) and os.path.basename(d) != 'config_snapshot'
-        and not os.path.basename(d).startswith('figures')
-    )
-    print(f"Found {len(sweep_dirs)} sweep dirs under {SWEEP_ROOT}")
-    for sd in sweep_dirs:
-        _process_sweep(sd, FIG_ROOT, common)
-    print(f"\nAll figures saved under {FIG_ROOT}")
+    plot_laminar_spectral_profile(all_trials, lfp_key='bipolar_lfp', **common)
+    plot_laminar_spectral_profile(all_trials, lfp_key='lfp_matrix', **common)
+    if 'lfp_current_matrix' in all_trials[0]:
+        plot_laminar_spectral_profile(all_trials,
+                                      lfp_key='lfp_current_matrix',
+                                      **common)
+
+        for trial in all_trials:
+            lfp_cur = trial['lfp_current_matrix']
+            trial['bipolar_lfp_current'] = np.diff(lfp_cur, axis=0)
+        plot_laminar_spectral_profile(all_trials,
+                                      lfp_key='bipolar_lfp_current',
+                                      title_suffix=' (Bipolar synaptic current)',
+                                      **common)
+    else:
+        print('\nNo lfp_current_matrix found in trials')

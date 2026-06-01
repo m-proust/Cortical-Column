@@ -39,74 +39,64 @@ def main():
    
     
    
-    column.network.run(baseline_time * ms)
+    
     L4C = column.layers['L4C']
     cfg_L4C = CONFIG['layers']['L4C']
-
-    # ---- STIMULUS BLOCK (commented out for silencing test) ----
+   
+    
     # L4C_E_grp = L4C.neuron_groups['E']
     # N_stim_E = 30
-    # stim_rate_E = 5*Hz
-    # L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA',
-    #                               N=N_stim_E,
-    #                               rate=stim_rate_E,
-    #                               weight=w_ext_AMPA)
-    #
-    # L4C_PV_grp = L4C.neuron_groups['PV']
-    # N_stim_PV = 40
-    # stim_rate_PV = 15*Hz
-    # L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA',
-    #                            N=N_stim_PV,
-    #                            rate=stim_rate_PV,
-    #                            weight=w_ext_AMPA*2.5)
-    #
+    # stim_rate_E = 5*Hz  
+    # L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
+    #                               N=N_stim_E, 
+    #                               rate=stim_rate_E, 
+    #                               weight=w_ext_AMPA)  
+    
+    
+    L4C_PV_grp = L4C.neuron_groups['PV']
+    N_stim_PV = 40
+    stim_rate_PV = 7*Hz 
+    # L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
+    #                            N=N_stim_PV, 
+    #                            rate=stim_rate_PV, 
+    #                            weight=w_ext_AMPA*1.5)  
+    
+    
     # L6 = column.layers['L6']
     # cfg_L6 = CONFIG['layers']['L6']
     # L6_PV_grp = L6.neuron_groups['PV']
     # N_stim_L6_PV = 10
-    # stim_rate_L6_PV = 6*Hz
+    # stim_rate_L6_PV = 5*Hz  
+    
     # L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
-    #                          N=N_stim_L6_PV,
-    #                          rate=stim_rate_L6_PV,
+    #                          N=N_stim_L6_PV, 
+    #                          rate=stim_rate_L6_PV, 
     #                          weight=w_ext_AMPA*1.5)
     # L6_E_grp = L6.neuron_groups['E']
     # N_stim_L6_E = 10
-    # stim_rate_L6_E = 5*Hz
+    # stim_rate_L6_E = 5*Hz  
+    
     # L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
-    #                          N=N_stim_L6_E,
-    #                          rate=stim_rate_L6_E,
-    #                          weight=w_ext_AMPA*1.5)
-    #
-    # column.network.add(L6_E_stim, L6_PV_stim)
-    # column.network.add(L4C_PV_stim)
-    # column.network.run(stimuli_time* ms)
-    # ---- END STIMULUS BLOCK ----
+    #                          N=N_stim_L6_E, 
+    #                          rate=stim_rate_L6_E, 
+    #                          weight=w_ext_AMPA)
 
-    # ---- SILENCING BLOCK (mimic Arch/Halo optogenetic silencing) ----
-    # Inject a strong hyperpolarizing current into a random subset of the
-    # target population for the "silencing" period. ~75% reflects typical
-    # opsin expression efficiency in PV-Cre / SOM-Cre lines; the remaining
-    # ~25% are "escapers" (cells that didn't express the opsin strongly).
-    silence_target_layer = 'L4C'
-    silence_target_pop = 'PV'
-    silence_fraction = 0.75
-    silence_current = -800 * pA   # bump to -1.5 nA if escapers still spike
 
-    silenced_grp = column.layers[silence_target_layer].neuron_groups[silence_target_pop]
-    n_total = len(silenced_grp)
-    n_silenced = int(silence_fraction * n_total)
-    silenced_idx = np.random.choice(n_total, n_silenced, replace=False)
 
-    I_array = np.zeros(n_total) * pA
-    I_array[silenced_idx] = silence_current
-    silenced_grp.I = I_array
+    # column.network.add( L6_E_stim,L6_PV_stim)
+    # column.network.add(L4C_E_stimAMPA,L4C_PV_stim)
+    
 
-    print(f"Silencing {n_silenced}/{n_total} {silence_target_layer} {silence_target_pop} "
-          f"cells with I = {silence_current/pA:.0f} pA "
-          f"({silence_fraction*100:.0f}%)")
+    column.network.run(baseline_time * ms)
 
-    column.network.run(stimuli_time * ms)
-    # ---- END SILENCING BLOCK ----
+    # L4C_PV_stim2 = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
+    #                            N=70, 
+    #                            rate=stim_rate_PV, 
+    #                            weight=w_ext_AMPA*1.5)  
+
+    # column.network.add(L4C_PV_stim2)
+
+    column.network.run(stimuli_time* ms)
 
     print("Simulation complete")
     
@@ -183,11 +173,24 @@ def main():
 
 
     fig_rate = plot_rate(rate_monitors, CONFIG['layers'], baseline_time, stimuli_time,
-                 smooth_window=15*ms, 
-                 ylim_max=80,      
-                 show_stats=True)  
+                 smooth_window=15*ms,
+                 ylim_max=80,
+                 show_stats=True)
     fig_lfp = plot_lfp_comparison(lfp_signals, bipolar_signals, time_array, electrode_positions,
                         channel_labels, channel_depths, figsize=(18, 12), time_range=(1000, 3500))
+
+    fig_bipolar_stack = plot_bipolar_stack(bipolar_signals, channel_depths, time_array,
+                                           time_range=(1000, 3500), color='#ff6d1e')
+
+    fig_mean_rates = plot_mean_rates_bar(rate_monitors, CONFIG['layers'],
+                                         baseline_time, stimuli_time,
+                                         transient_skip=300)
+
+    fig_power_global = plot_bipolar_power_global(bipolar_signals, channel_labels,
+                                                 channel_depths, time_array,
+                                                 baseline_time=baseline_time,
+                                                 pre_stim_duration=500,
+                                                 fmax=300)
 
 
     plt.show()

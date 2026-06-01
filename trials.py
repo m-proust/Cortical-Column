@@ -51,12 +51,8 @@ def run_single_trial(
 
     total_time = baseline_ms + stimuli_ms
 
-    if trial_id == 0:
-        baseline_seed = network_seed
-        stim_seed = network_seed
-    else:
-        baseline_seed = int(network_seed + 2 * trial_id)
-        stim_seed = int(network_seed + 2 * trial_id + 1)
+    baseline_seed = int(network_seed + 2 * trial_id + 1)
+    stim_seed = int(network_seed + 2 * trial_id + 2)
 
     if verbose:
         print(f"\n=== Trial {trial_id}  |  network seed {network_seed}  |  "
@@ -65,39 +61,78 @@ def run_single_trial(
 
     column = CorticalColumn(column_id=0, config=config)
     for layer_name, layer in column.layers.items():
-        add_heterogeneity_to_layer(layer, CONFIG)
+        add_heterogeneity_to_layer(layer, CONFIG, scale=0.3)
 
     all_monitors = column.get_all_monitors()
     w_ext_AMPA = config['synapses']['Q']['EXT_AMPA']
+    w_ext_NMDA = CONFIG['synapses']['Q'].get('EXT_NMDA', w_ext_AMPA)
 
-    if trial_id != 0:
-        np.random.seed(baseline_seed)
-        b2.seed(baseline_seed)
+    np.random.seed(baseline_seed)
+    b2.seed(baseline_seed)
     column.network.run(baseline_ms * ms)
 
-    if trial_id != 0:
-        np.random.seed(stim_seed)
-        b2.seed(stim_seed)
+    np.random.seed(stim_seed)
+    b2.seed(stim_seed)
+    feedback_inputs = []
+
+    L23 = column.layers['L23']
+    L5  = column.layers['L5']
+    L6  = column.layers['L6']
 
 
     L4C = column.layers['L4C']
-    L4C_E_grp = L4C.neuron_groups['E']
-    L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA',
-                                  N=30, rate=5*Hz, weight=w_ext_AMPA)
+    cfg_L4C = CONFIG['layers']['L4C']
+   
+    
+    # L4C_E_grp = L4C.neuron_groups['E']
+    # N_stim_E = 30
+    # stim_rate_E = 5*Hz  
+    # L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
+    #                               N=N_stim_E, 
+    #                               rate=stim_rate_E, 
+    #                               weight=w_ext_AMPA)  
+    
+    
     L4C_PV_grp = L4C.neuron_groups['PV']
-    L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA',
-                               N=40, rate=7*Hz, weight=w_ext_AMPA*2.5)
+    # N_stim_PV = 40
+    # stim_rate_PV = 7*Hz 
+    # L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
+    #                            N=N_stim_PV, 
+    #                            rate=stim_rate_PV, 
+    #                            weight=w_ext_AMPA*2.5)  
+    
+    
+    # L6 = column.layers['L6']
+    # cfg_L6 = CONFIG['layers']['L6']
+    # L6_PV_grp = L6.neuron_groups['PV']
+    # N_stim_L6_PV = 10
+    # stim_rate_L6_PV = 6*Hz  
+    
+    # L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
+    #                          N=N_stim_L6_PV, 
+    #                          rate=stim_rate_L6_PV, 
+    #                          weight=w_ext_AMPA*1.5)
+    # L6_E_grp = L6.neuron_groups['E']
+    # N_stim_L6_E = 10
+    # stim_rate_L6_E = 5*Hz  
+    
+    # L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
+    #                          N=N_stim_L6_E, 
+    #                          rate=stim_rate_L6_E, 
+    #                          weight=w_ext_AMPA*1.5)
 
-    L6 = column.layers['L6']
-    L6_E_grp = L6.neuron_groups['E']
-    L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
-                             N=10, rate=5*Hz, weight=w_ext_AMPA*1.5)
-    L6_PV_grp = L6.neuron_groups['PV']
-    L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
-                              N=10, rate=6*Hz, weight=w_ext_AMPA*1.5)
 
-    column.network.add(L6_E_stim, L6_PV_stim)
-    column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
+
+    # column.network.add(L6_E_stim, L6_PV_stim)
+    # column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
+    L4C_PV_stim2 = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
+                               N=70, 
+                               rate=7*Hz, 
+                               weight=w_ext_AMPA*1.5)  
+
+    column.network.add(L4C_PV_stim2)
+
+
 
     column.network.run(stimuli_ms * ms)
 
@@ -248,7 +283,7 @@ def run_multiple_trials(
     baseline_ms=2000,
     stimuli_ms=2000,
     fs=10000,
-    save_dir="results/trials",
+    save_dir="results/trials_20_05",
     verbose=True,
 ):
     os.makedirs(save_dir, exist_ok=True)
@@ -271,13 +306,28 @@ def run_multiple_trials(
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Run trials with a fixed network seed; baseline + stimulus "
+                    "Poisson inputs are reseeded per trial.")
+    parser.add_argument("--network-seed", type=int, default=58883,
+                        help="Seed for network construction (fixed across trials).")
+    parser.add_argument("--n-trials", type=int, default=20)
+    parser.add_argument("--baseline-ms", type=int, default=2000)
+    parser.add_argument("--stimuli-ms", type=int, default=2000)
+    parser.add_argument("--fs", type=int, default=10000)
+    parser.add_argument("--save-dir", type=str, required=True)
+    parser.add_argument("--quiet", action="store_true")
+    args = parser.parse_args()
+
     run_multiple_trials(
         CONFIG,
-        n_trials=30,
-        network_seed=58910,
-        baseline_ms=2000,
-        stimuli_ms=2000,
-        fs=10000,
-        save_dir="results/trials_29_04_L1",
-        verbose=True,
+        n_trials=args.n_trials,
+        network_seed=args.network_seed,
+        baseline_ms=args.baseline_ms,
+        stimuli_ms=args.stimuli_ms,
+        fs=args.fs,
+        save_dir=args.save_dir,
+        verbose=not args.quiet,
     )

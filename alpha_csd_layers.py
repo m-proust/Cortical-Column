@@ -9,7 +9,6 @@ from scipy.signal import butter, sosfiltfilt, hilbert, find_peaks, welch
 from scipy.ndimage import gaussian_filter
 
 
-# Same layer conventions as the PLV script so depth labels match across plots.
 LAYER_Z_RANGES = {
     'L23':  (0.45, 1.10),
     'L4AB': (0.14, 0.45),

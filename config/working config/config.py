@@ -72,25 +72,9 @@ csv_layer_configs, _INTER_LAYER_CONNECTIONS, _INTER_LAYER_CONDUCTANCES = load_co
 
 
 
-
-_SUPPRESSED_INTER_LAYER = [
-    # ('L6', 'L23'),
-]
-_SUPPRESS_ALL_INTER_LAYER = False
-
-if _SUPPRESS_ALL_INTER_LAYER:
-    _INTER_LAYER_CONNECTIONS = {}
-    _INTER_LAYER_CONDUCTANCES = {}
-else:
-    for _pair in _SUPPRESSED_INTER_LAYER:
-        if _pair not in _INTER_LAYER_CONNECTIONS:
-            raise KeyError(
-                f"Cannot suppress inter-layer pair {_pair}: not present in "
-                f"_INTER_LAYER_CONNECTIONS. Available pairs: "
-                f"{sorted(_INTER_LAYER_CONNECTIONS.keys())}"
-            )
-        _INTER_LAYER_CONNECTIONS.pop(_pair, None)
-        _INTER_LAYER_CONDUCTANCES.pop(_pair, None)
+# Temporarily disable inter-layer connections to test alpha generation
+# _INTER_LAYER_CONNECTIONS = {}
+# _INTER_LAYER_CONDUCTANCES = {}
 
 _LAYER_CONFIGS = {
     'L23': {
@@ -194,8 +178,8 @@ _LAYER_CONFIGS = {
         'poisson_inputs': {
             'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 34},
             'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},    
-             'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
-            'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},
+             'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 16},
+            'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 17},
             # 'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 10},
             # 'E_NMDA':   {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 55},
             # 'PV_NMDA':  {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 10},
@@ -203,7 +187,7 @@ _LAYER_CONFIGS = {
             # 'VIP_NMDA': {'target': 'gE_NMDA', 'weight': 'EXT_NMDA', 'N': 15},
 
         },
-        'input_rate': 5*Hz,
+        'input_rate': 6*Hz,
         'neuron_counts': {'E': 2040, 'PV': 195, 'SOM': 110, 'VIP': 70},
         'coordinates' : {
             'x': (-0.15,0.15),

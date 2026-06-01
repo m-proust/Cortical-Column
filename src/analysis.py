@@ -147,22 +147,27 @@ def record_trial_metadata(column):
     return metadata
 
 
-def add_heterogeneity_to_layer(layer, config):
+def add_heterogeneity_to_layer(layer, config, scale=1.0):
+    """Apply intrinsic-parameter heterogeneity to every neuron group in `layer`.
+
+    `scale` multiplies every sigma (and the EL jitter): scale=1.0 reproduces the
+    original behavior, scale=0.5 halves the spread, scale=0.0 disables it.
+    """
     for pop_name, neuron_group in layer.neuron_groups.items():
         n = len(neuron_group)
         base = config['intrinsic_params'][pop_name]
-        
-        def vary(base_val, sigma=0.15):
-            factors = np.clip(1 + np.random.randn(n) * sigma, 0.5, 1.5)
+
+        def vary(base_val, sigma):
+            factors = np.clip(1 + np.random.randn(n) * sigma * scale, 0.5, 1.5)
             return base_val * factors
-        
+
         neuron_group.C    = vary(base['C'], 0.15)
         neuron_group.gL   = vary(base['gL'], 0.12)
         neuron_group.tauw = vary(base['tauw'], 0.15)
         neuron_group.b    = vary(base['b'], 0.20)
         neuron_group.a    = vary(base['a'], 0.15)
         base_EL = base['EL']
-        neuron_group.EL = base_EL + np.random.randn(n) * 2*mV  
+        neuron_group.EL = base_EL + np.random.randn(n) * 2 * mV * scale
         neuron_group.DeltaT = vary(base['DeltaT'], 0.10)
 
 

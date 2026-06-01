@@ -230,6 +230,84 @@ def plot_pct_change_heatmaps(p_vals, freqs, psd_stack,
     return fig
 
 
+def plot_pct_change_3d_single_channel(p_vals, freqs, psd_stack,
+                                      channel_labels, channel_depths,
+                                      ch_idx=3,
+                                      ref_p=PCT_REF_P,
+                                      upsample_p=8, smooth_freq=4,
+                                      clip_percentile=99):
+    """Single 3D surface for one channel: x=freq, y=p, z=% change vs ref_p.
+
+    Styled identically to plot_laminar_pct_change_3d in laminar_power_change.py
+    (large single figure, white background, RdBu_r diverging map centered on
+    0, floor contour projection).
+    """
+    n_channels = psd_stack.shape[0]
+    bip_depths = ((channel_depths[:-1] + channel_depths[1:]) / 2
+                  if len(channel_depths) > n_channels
+                  else channel_depths[:n_channels])
+    ch_idx = max(0, min(n_channels - 1, int(ch_idx)))
+    lbl = channel_labels[ch_idx] if ch_idx < len(channel_labels) else f"ch{ch_idx}"
+    z = bip_depths[ch_idx]
+
+    ref_idx = int(np.argmin(np.abs(p_vals - ref_p)))
+    actual_ref = p_vals[ref_idx]
+    ref_psd = psd_stack[ch_idx, ref_idx:ref_idx + 1, :]
+    pct = (psd_stack[ch_idx] - ref_psd) / (ref_psd + 1e-20) * 100.0  # (P, F)
+
+    if upsample_p and upsample_p > 1 and len(p_vals) > 1:
+        pct_up = zoom(pct, (upsample_p, 1), order=3)
+        p_up = np.linspace(p_vals.min(), p_vals.max(), pct_up.shape[0])
+    else:
+        pct_up = pct
+        p_up = p_vals
+
+    if smooth_freq and smooth_freq > 1:
+        kernel = np.ones(smooth_freq) / smooth_freq
+        pct_up = np.apply_along_axis(
+            lambda v: np.convolve(v, kernel, mode='same'), 1, pct_up)
+
+    neg = pct_up[pct_up < 0]
+    vmin = np.percentile(neg, 100 - clip_percentile) if neg.size else -1.0
+    vmin = min(vmin, -1.0)
+    pos = pct_up[pct_up > 0]
+    vmax = np.percentile(pos, clip_percentile) if pos.size else 1.0
+    vmax = max(vmax, 1.0)
+
+    fig = plt.figure(figsize=(10, 7), facecolor='white')
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_facecolor('white')
+    ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+    ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+    ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+    F, P = np.meshgrid(freqs, p_up)
+    norm = TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
+    surf = ax.plot_surface(F, P, pct_up, cmap='RdBu_r', norm=norm,
+                           edgecolor='none', alpha=0.95, antialiased=True,
+                           rcount=80, ccount=80)
+    ax.contour(F, P, pct_up, zdir='z',
+               offset=np.nanmin(pct_up) - 20,
+               cmap='RdBu_r', norm=norm, levels=12)
+
+    ax.set_xlabel('Frequency (Hz)', fontsize=9)
+    ax.set_ylabel('inter-layer p', fontsize=9)
+    ax.set_zlabel('% change', fontsize=9)
+    ax.set_title(f'3D % power change vs p={actual_ref:.2f}  '
+                 f'[{vmin:+.0f}, {vmax:+.0f}]%  '
+                 f'-- {lbl}  z={z:+.2f}', fontsize=12)
+    ax.view_init(elev=25, azim=-60)
+    fig.colorbar(surf, ax=ax, shrink=0.55, pad=0.08, label='% change')
+    fig.tight_layout()
+    if SAVE_FIGS:
+        os.makedirs(FIG_DIR, exist_ok=True)
+        out = os.path.join(
+            FIG_DIR,
+            f"psd_pct_change_3d_{lbl}_ref_p_{actual_ref:.2f}.png")
+        fig.savefig(out, dpi=140, bbox_inches='tight')
+        print(f"  saved {out}")
+    return fig
+
+
 def plot_pct_change_3d_surfaces(p_vals, freqs, psd_stack,
                                 channel_labels, channel_depths,
                                 ref_p=PCT_REF_P,
@@ -476,21 +554,25 @@ def main():
 
     p_vals, freqs, psd_stack = compute_p_freq_matrix(runs)
 
-    plot_heatmaps(p_vals, freqs, psd_stack,
-                  runs[0]['channel_labels'], runs[0]['channel_depths'])
-    plot_band_power_curves(p_vals, freqs, psd_stack,
-                           runs[0]['channel_labels'],
-                           runs[0]['channel_depths'])
-    plot_pct_change_heatmaps(p_vals, freqs, psd_stack,
-                             runs[0]['channel_labels'],
-                             runs[0]['channel_depths'])
-    plot_pct_change_3d_surfaces(p_vals, freqs, psd_stack,
-                                runs[0]['channel_labels'],
-                                runs[0]['channel_depths'])
-    plot_single_channel(p_vals, freqs, psd_stack,
-                        runs[0]['channel_labels'],
-                        runs[0]['channel_depths'],
-                        ch_idx=7)        # Ch8-Ch7, z=+0.18
+    # plot_heatmaps(p_vals, freqs, psd_stack,
+    #               runs[0]['channel_labels'], runs[0]['channel_depths'])
+    # plot_band_power_curves(p_vals, freqs, psd_stack,
+    #                        runs[0]['channel_labels'],
+    #                        runs[0]['channel_depths'])
+    # plot_pct_change_heatmaps(p_vals, freqs, psd_stack,
+    #                          runs[0]['channel_labels'],
+    #                          runs[0]['channel_depths'])
+    # plot_pct_change_3d_surfaces(p_vals, freqs, psd_stack,
+    #                             runs[0]['channel_labels'],
+    #                             runs[0]['channel_depths'])
+    plot_pct_change_3d_single_channel(p_vals, freqs, psd_stack,
+                                      runs[0]['channel_labels'],
+                                      runs[0]['channel_depths'],
+                                      ch_idx=7)
+    # plot_single_channel(p_vals, freqs, psd_stack,
+    #                     runs[0]['channel_labels'],
+    #                     runs[0]['channel_depths'],
+    #                     ch_idx=7)        # Ch8-Ch7, z=+0.18
     plt.show()
 
 
