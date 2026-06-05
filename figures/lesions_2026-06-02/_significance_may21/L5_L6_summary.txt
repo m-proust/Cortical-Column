@@ -1,0 +1,14 @@
+# Lesion L5_L6
+# Significant band/channel combinations (>=25% of bins pass FDR<0.05)
+
+band       channel        depth  frac_sig  med_log2FC   max_abs   dir
+theta      Ch1-Ch0       -0.865      0.43      +0.989     1.048    up
+theta      Ch2-Ch1       -0.715      0.57      +0.938     1.252    up
+alpha      Ch1-Ch0       -0.865      0.62      -2.863     3.645  down
+alpha      Ch2-Ch1       -0.715      0.62      -2.864     3.733  down
+alpha      Ch8-Ch7       +0.180      0.25      -1.697     1.703  down
+alpha      Ch9-Ch8       +0.330      0.25      -1.960     2.277  down
+beta       Ch1-Ch0       -0.865      0.93      -1.856     4.266  down
+beta       Ch2-Ch1       -0.715      0.96      -1.893     4.526  down
+high_gamma Ch1-Ch0       -0.865      0.55      -1.263     1.929  down
+high_gamma Ch2-Ch1       -0.715      0.62      -1.450     2.173  down

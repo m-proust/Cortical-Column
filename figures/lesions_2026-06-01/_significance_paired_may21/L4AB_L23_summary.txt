@@ -1,0 +1,42 @@
+# Lesion L4AB_L23
+# Significant band/channel combinations (>=25% of bins pass FDR<0.05)
+
+band       channel        depth  frac_sig  med_log2FC   max_abs   dir
+delta      Ch13-Ch12     +0.930      0.40      -1.114     1.294  down
+delta      Ch14-Ch13     +1.080      0.40      -1.031     1.203  down
+theta      Ch3-Ch2       -0.565      1.00      -1.499     1.870  down
+theta      Ch4-Ch3       -0.415      1.00      -1.324     2.084  down
+theta      Ch6-Ch5       -0.115      0.43      +1.455     1.737    up
+theta      Ch9-Ch8       +0.330      0.57      +1.575     1.832    up
+theta      Ch10-Ch9      +0.480      0.86      -2.073     2.699  down
+theta      Ch11-Ch10     +0.630      0.86      -2.319     2.859  down
+theta      Ch12-Ch11     +0.780      0.43      +0.759     1.168    up
+theta      Ch13-Ch12     +0.930      1.00      -2.906     3.093  down
+theta      Ch14-Ch13     +1.080      1.00      -2.759     2.967  down
+theta      Ch15-Ch14     +1.230      1.00      -2.383     2.643  down
+alpha      Ch3-Ch2       -0.565      0.75      -2.026     2.688  down
+alpha      Ch4-Ch3       -0.415      1.00      -1.386     1.800  down
+alpha      Ch9-Ch8       +0.330      0.38      +1.618     1.623    up
+alpha      Ch10-Ch9      +0.480      0.75      -1.968     2.647  down
+alpha      Ch11-Ch10     +0.630      0.75      -2.047     2.740  down
+alpha      Ch13-Ch12     +0.930      1.00      -3.759     4.784  down
+alpha      Ch14-Ch13     +1.080      1.00      -3.684     4.937  down
+alpha      Ch15-Ch14     +1.230      0.75      -2.695     3.419  down
+beta       Ch2-Ch1       -0.715      0.25      -1.765     2.209  down
+beta       Ch3-Ch2       -0.565      0.86      -1.488     2.752  down
+beta       Ch4-Ch3       -0.415      0.79      -1.194     2.344  down
+beta       Ch10-Ch9      +0.480      0.82      -1.727     2.355  down
+beta       Ch11-Ch10     +0.630      0.86      -1.662     2.316  down
+beta       Ch13-Ch12     +0.930      1.00      -3.656     5.033  down
+beta       Ch14-Ch13     +1.080      1.00      -3.932     5.393  down
+beta       Ch15-Ch14     +1.230      1.00      -3.047     3.733  down
+low_gamma  Ch10-Ch9      +0.480      0.44      -1.435     2.717  down
+low_gamma  Ch11-Ch10     +0.630      0.47      -1.515     2.535  down
+low_gamma  Ch13-Ch12     +0.930      0.88      -2.248     4.110  down
+low_gamma  Ch14-Ch13     +1.080      0.88      -2.320     4.045  down
+low_gamma  Ch15-Ch14     +1.230      0.97      -2.535     4.036  down
+high_gamma Ch3-Ch2       -0.565      0.30      -1.027     1.902  down
+high_gamma Ch4-Ch3       -0.415      0.28      -1.099     1.551  down
+high_gamma Ch13-Ch12     +0.930      0.50      -1.272     2.042  down
+high_gamma Ch14-Ch13     +1.080      0.50      -1.385     2.313  down
+high_gamma Ch15-Ch14     +1.230      0.46      -1.108     2.043  down

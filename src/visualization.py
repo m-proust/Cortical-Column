@@ -446,20 +446,35 @@ def plot_lfp_power_comparison_kernel(lfp_signals, time_array, electrode_position
 
     plt.tight_layout()
     return fig
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import signal as scipy_signal
+
+
+def oscillatory_peak(freq, psd, min_prominence=0.05):
+ 
+    pos = freq > 0
+    f, p = freq[pos], psd[pos]
+
+    slope, intercept = np.polyfit(np.log10(f), np.log10(p), 1)
+    residual = np.log10(p) - (slope * np.log10(f) + intercept)
+
+    idx = np.argmax(residual)
+    if residual[idx] < min_prominence:  
+        return None
+    return f[idx]
 
 
 def plot_bipolar_power_comparison_kernel(bipolar_signals, channel_labels, channel_depths, time_array,
-                                          baseline_time=1000, pre_stim_duration=1000,
-                                          post_stim_duration=1000, transient_skip=500,
-                                          fs=10000, fmax=100, figsize=(14, 20)):
+                                         baseline_time=1000, pre_stim_duration=1000,
+                                         post_stim_duration=1000, transient_skip=500,
+                                         fs=10000, fmax=100, figsize=(14, 20)):
     n_channels = len(bipolar_signals)
-
     fig, axes = plt.subplots(n_channels, 1, figsize=figsize, sharex=True)
     if n_channels == 1:
         axes = [axes]
 
     dt = time_array[1] - time_array[0]
-
     pre_start_idx = int((baseline_time - pre_stim_duration) / dt)
     pre_end_idx = int(baseline_time / dt)
     post_start_idx = int((baseline_time + transient_skip) / dt)
@@ -473,24 +488,25 @@ def plot_bipolar_power_comparison_kernel(bipolar_signals, channel_labels, channe
         lfp_pre = lfp[pre_start_idx:pre_end_idx]
         lfp_post = lfp[post_start_idx:post_end_idx]
 
-        nperseg = 100*min(1024, len(lfp_pre) // 4)
-        freq_pre, psd_pre = scipy_signal.welch(lfp_pre, fs=fs, nperseg=nperseg, window='hann')
-        freq_post, psd_post = scipy_signal.welch(lfp_post, fs=fs, nperseg=nperseg, window='hann')
+        nperseg = len(lfp_pre) // 2
+        nfft = int(2 ** np.ceil(np.log2(4 * nperseg)))
+        freq, psd_pre = scipy_signal.welch(lfp_pre, fs=fs, nperseg=nperseg, nfft=nfft, window='hann')
+        _, psd_post = scipy_signal.welch(lfp_post, fs=fs, nperseg=nperseg, nfft=nfft, window='hann')
 
-        freq_mask = freq_pre <= fmax
+        mask = freq <= fmax
+        f = freq[mask]
+        p_pre = psd_pre[mask]
+        p_post = psd_post[mask]
 
-        ax.plot(freq_pre[freq_mask], psd_pre[freq_mask], 'b-', linewidth=1.5,
-                label='Pre-stim', alpha=0.9)
-        ax.plot(freq_post[freq_mask], psd_post[freq_mask], 'r--', linewidth=1.5,
-                label='Post-stim', alpha=0.9)
+        ax.plot(f, p_pre, 'b-', linewidth=1.5, label='Pre-stim', alpha=0.9)
+        ax.plot(f, p_post, 'r--', linewidth=1.5, label='Post-stim', alpha=0.9)
 
-        peak_idx_pre = np.argmax(psd_pre[freq_mask])
-        peak_idx_post = np.argmax(psd_post[freq_mask])
-
-        ax.axvline(freq_pre[freq_mask][peak_idx_pre], color='b', linestyle=':', alpha=0.5,
-                   label=f'Pre peak: {freq_pre[freq_mask][peak_idx_pre]:.1f} Hz')
-        ax.axvline(freq_post[freq_mask][peak_idx_post], color='r', linestyle=':', alpha=0.5,
-                   label=f'Post peak: {freq_post[freq_mask][peak_idx_post]:.1f} Hz')
+        pk_pre = oscillatory_peak(f, p_pre)
+        pk_post = oscillatory_peak(f, p_post)
+        if pk_pre is not None:
+            ax.axvline(pk_pre, color='b', linestyle=':', alpha=0.5, label=f'Pre peak: {pk_pre:.1f} Hz')
+        if pk_post is not None:
+            ax.axvline(pk_post, color='r', linestyle=':', alpha=0.5, label=f'Post peak: {pk_post:.1f} Hz')
 
         ax.set_ylabel(f'{label}\nz={depth:.2f}mm', fontsize=9)
         ax.set_yscale('log')
@@ -500,10 +516,8 @@ def plot_bipolar_power_comparison_kernel(bipolar_signals, channel_labels, channe
     axes[-1].set_xlabel('Frequency (Hz)', fontsize=12)
     axes[0].set_title('Bipolar LFP Power Spectrum: Pre vs Post Stimulation',
                       fontsize=12, fontweight='bold')
-
     plt.tight_layout()
     return fig
-
 
 def plot_mean_rates_bar(rate_monitors, layer_configs, baseline_time, stimuli_time,
                         transient_skip=300, figsize=(12, 6)):

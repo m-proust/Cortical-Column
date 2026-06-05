@@ -201,7 +201,7 @@ def plot_laminar_spectral_profile(all_trials,
     axes[1].set_ylabel('Laminar depth')
     plt.colorbar(im2, ax=axes[1], label='Power (dB)')
 
-    norm = TwoSlopeNorm(vmin=-100, vcenter=0, vmax=100)
+    norm = TwoSlopeNorm(vmin=-100, vcenter=0, vmax=500)
     im3 = axes[2].imshow(pct_change, aspect='auto', cmap='RdBu_r',
                          extent=extent, origin='upper', norm=norm)
     axes[2].set_title('Stimulus-induced change (%)')
@@ -298,8 +298,8 @@ def plot_laminar_pct_change_3d(freqs, depths, pct_change,
 
 
 if __name__ == '__main__':
-    base_path = 'results/trials3_21_05'
-    n_trials = 10
+    base_path = 'results/trials_03_06'
+    n_trials = 9
 
 
     all_trials = load_trials(base_path, n_trials)
@@ -318,7 +318,7 @@ if __name__ == '__main__':
     common = dict(
         pre_window_ms=500,
         post_window_ms=500,
-        post_start_ms=500,
+        post_start_ms=200,
         freq_range=(0, 120),
         log_freq=False,
         remove_mean=True,

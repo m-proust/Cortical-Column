@@ -37,57 +37,57 @@ def main():
 
     
    
-    
+    column.network.run(baseline_time * ms)
    
     
     L4C = column.layers['L4C']
     cfg_L4C = CONFIG['layers']['L4C']
    
     
-    # L4C_E_grp = L4C.neuron_groups['E']
-    # N_stim_E = 30
-    # stim_rate_E = 5*Hz  
-    # L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
-    #                               N=N_stim_E, 
-    #                               rate=stim_rate_E, 
-    #                               weight=w_ext_AMPA)  
+    L4C_E_grp = L4C.neuron_groups['E']
+    N_stim_E = 30
+    stim_rate_E = 5*Hz  
+    L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
+                                  N=N_stim_E, 
+                                  rate=stim_rate_E, 
+                                  weight=w_ext_AMPA)  
     
     
     L4C_PV_grp = L4C.neuron_groups['PV']
     N_stim_PV = 40
     stim_rate_PV = 7*Hz 
-    # L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
-    #                            N=N_stim_PV, 
-    #                            rate=stim_rate_PV, 
-    #                            weight=w_ext_AMPA*1.5)  
+    L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
+                               N=N_stim_PV, 
+                               rate=stim_rate_PV, 
+                               weight=w_ext_AMPA*2.5)  
     
     
-    # L6 = column.layers['L6']
-    # cfg_L6 = CONFIG['layers']['L6']
-    # L6_PV_grp = L6.neuron_groups['PV']
-    # N_stim_L6_PV = 10
-    # stim_rate_L6_PV = 5*Hz  
+    L6 = column.layers['L6']
+    cfg_L6 = CONFIG['layers']['L6']
+    L6_PV_grp = L6.neuron_groups['PV']
+    N_stim_L6_PV = 10
+    stim_rate_L6_PV = 6*Hz  
     
-    # L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
-    #                          N=N_stim_L6_PV, 
-    #                          rate=stim_rate_L6_PV, 
-    #                          weight=w_ext_AMPA*1.5)
-    # L6_E_grp = L6.neuron_groups['E']
-    # N_stim_L6_E = 10
-    # stim_rate_L6_E = 5*Hz  
+    L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
+                             N=N_stim_L6_PV, 
+                             rate=stim_rate_L6_PV, 
+                             weight=w_ext_AMPA*1.5)
+    L6_E_grp = L6.neuron_groups['E']
+    N_stim_L6_E = 10
+    stim_rate_L6_E = 5*Hz  
     
-    # L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
-    #                          N=N_stim_L6_E, 
-    #                          rate=stim_rate_L6_E, 
-    #                          weight=w_ext_AMPA)
+    L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
+                             N=N_stim_L6_E, 
+                             rate=stim_rate_L6_E, 
+                             weight=w_ext_AMPA*1.5)
 
 
 
-    # column.network.add( L6_E_stim,L6_PV_stim)
-    # column.network.add(L4C_E_stimAMPA,L4C_PV_stim)
+    column.network.add( L6_E_stim,L6_PV_stim)
+    column.network.add(L4C_E_stimAMPA,L4C_PV_stim)
     
 
-    column.network.run(baseline_time * ms)
+   
 
     # L4C_PV_stim2 = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
     #                            N=70, 
@@ -166,8 +166,8 @@ def main():
                         channel_depths,
                         time_array,
                         baseline_time=baseline_time,
-                        pre_stim_duration=500,
-                        post_stim_duration=500,
+                        pre_stim_duration=1500,
+                        post_stim_duration=1500,
                         transient_skip=200
                     )
 

@@ -84,10 +84,7 @@ class CorticalColumn:
         base_ms = inter_delay_EE.get((source_layer, target_layer), 1.8)
         
         # Adjust by presynaptic cell type (axon speed differences)
-        # These ratios come from the intra-layer table:
-        # PV axons are ~0.75x the E delay (fastest)
-        # SOM axons are ~1.0x the E delay (similar)  
-        # VIP axons are ~2.5x the E delay (slowest, thin unmyelinated)
+  
         pre_scale = {
             'E':   1.0,
             'PV':  0.75,

@@ -73,9 +73,16 @@ csv_layer_configs, _INTER_LAYER_CONNECTIONS, _INTER_LAYER_CONDUCTANCES = load_co
 
 
 
-_SUPPRESSED_INTER_LAYER = [
-    # ('L6', 'L23'),
-]
+import os as _os
+_env_lesion = _os.environ.get('LESION_PAIR')
+if _env_lesion is None:
+    _SUPPRESSED_INTER_LAYER = [
+        # ('L6', 'L23'),
+    ]
+elif _env_lesion.upper() == 'NONE':
+    _SUPPRESSED_INTER_LAYER = []
+else:
+    _SUPPRESSED_INTER_LAYER = [tuple(_env_lesion.split(','))]
 _SUPPRESS_ALL_INTER_LAYER = False
 
 if _SUPPRESS_ALL_INTER_LAYER:

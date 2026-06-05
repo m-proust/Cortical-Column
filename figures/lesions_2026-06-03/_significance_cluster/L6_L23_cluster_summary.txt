@@ -1,0 +1,11 @@
+# Lesion L6_L23
+# Cluster permutation test, n_perm=1000, forming p<0.01, alpha=0.05
+# Channels connectivity: off (per-channel)
+
+  (suprathreshold bins existed but no cluster survived permutation at alpha=0.05)
+
+## Surviving clusters
+ id sign               channels   f_range (Hz) n_bins       mass        p  med_log2FC
+
+## Sig channels per band (>=25% bins inside cluster)
+band       channel        depth  frac_sig  med_log2FC   dir

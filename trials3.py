@@ -62,7 +62,7 @@ def run_single_trial(
 
     column = CorticalColumn(column_id=0, config=config)
     for layer_name, layer in column.layers.items():
-        add_heterogeneity_to_layer(layer, CONFIG, scale=0.3) 
+        add_heterogeneity_to_layer(layer, CONFIG) 
 
     all_monitors = column.get_all_monitors()
 
@@ -276,10 +276,10 @@ def run_multiple_trials(
 if __name__ == "__main__":
     run_multiple_trials(
         CONFIG,
-        n_trials=10,
+        n_trials=20,
         baseline_ms=3000,
         stimuli_ms=3000,
         fs=10000,
-        save_dir="results/trials3_21_05",
+        save_dir="results/trials3_03-06",
         verbose=True,
     )

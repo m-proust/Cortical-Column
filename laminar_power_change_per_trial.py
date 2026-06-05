@@ -167,8 +167,8 @@ def plot_single_trial_bipolar(trial,
 
 
 if __name__ == '__main__':
-    base_path = 'results/trials_12_05'
-    n_trials = 23
+    base_path = 'results/trials3_03-06'
+    n_trials = 14
     save_dir = os.path.join(base_path, 'per_trial_bipolar')
 
     all_trials = load_trials(base_path, n_trials)
@@ -184,7 +184,7 @@ if __name__ == '__main__':
         do_detrend=True,
         lfp_key='bipolar_lfp',
         save_dir=save_dir,
-        show=True,
+        show=False,
     )
 
     for i, tr in enumerate(all_trials):

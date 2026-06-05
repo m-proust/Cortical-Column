@@ -16,7 +16,7 @@ CONFIG_FILES = [
     "config/conductances_NMDA.csv",
     "config/connection_probabilities.csv",
     "main.py",
-    "trials3.py",
+    "trials.py",
 ]
 
 def save_config_snapshot(save_dir, base_dir=None):
@@ -36,13 +36,13 @@ def save_config_snapshot(save_dir, base_dir=None):
 def run_single_trial(
     config,
     trial_id=0,
-    network_seed=58880,
+    network_seed=58881,
     baseline_ms=2000,
     stimuli_ms=2000,
     fs=10000,
     verbose=True,
 ):
-   
+
     np.random.seed(network_seed)
     b2.seed(network_seed)
 
@@ -61,7 +61,7 @@ def run_single_trial(
 
     column = CorticalColumn(column_id=0, config=config)
     for layer_name, layer in column.layers.items():
-        add_heterogeneity_to_layer(layer, CONFIG, scale=0.3)
+        add_heterogeneity_to_layer(layer, CONFIG)
 
     all_monitors = column.get_all_monitors()
     w_ext_AMPA = config['synapses']['Q']['EXT_AMPA']
@@ -75,13 +75,13 @@ def run_single_trial(
     b2.seed(stim_seed)
     feedback_inputs = []
 
-    L23 = column.layers['L23']
-    L5  = column.layers['L5']
-    L6  = column.layers['L6']
+    # L23 = column.layers['L23']
+    # L5  = column.layers['L5']
+    # L6  = column.layers['L6']
 
 
-    L4C = column.layers['L4C']
-    cfg_L4C = CONFIG['layers']['L4C']
+    # L4C = column.layers['L4C']
+    # cfg_L4C = CONFIG['layers']['L4C']
    
     
     # L4C_E_grp = L4C.neuron_groups['E']
@@ -93,7 +93,7 @@ def run_single_trial(
     #                               weight=w_ext_AMPA)  
     
     
-    L4C_PV_grp = L4C.neuron_groups['PV']
+    # L4C_PV_grp = L4C.neuron_groups['PV']
     # N_stim_PV = 40
     # stim_rate_PV = 7*Hz 
     # L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
@@ -125,12 +125,12 @@ def run_single_trial(
 
     # column.network.add(L6_E_stim, L6_PV_stim)
     # column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
-    L4C_PV_stim2 = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
-                               N=70, 
-                               rate=7*Hz, 
-                               weight=w_ext_AMPA*1.5)  
+    # L4C_PV_stim2 = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
+    #                            N=70, 
+    #                            rate=7*Hz, 
+    #                            weight=w_ext_AMPA*1.5)  
 
-    column.network.add(L4C_PV_stim2)
+    # column.network.add(L4C_PV_stim2)
 
 
 
@@ -279,11 +279,11 @@ def run_single_trial(
 def run_multiple_trials(
     config,
     n_trials=50,
-    network_seed=58880,
+    network_seed=58881,
     baseline_ms=2000,
     stimuli_ms=2000,
     fs=10000,
-    save_dir="results/trials_20_05",
+    save_dir="results/trial_12s_05_06",
     verbose=True,
 ):
     os.makedirs(save_dir, exist_ok=True)
@@ -311,7 +311,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run trials with a fixed network seed; baseline + stimulus "
                     "Poisson inputs are reseeded per trial.")
-    parser.add_argument("--network-seed", type=int, default=58883,
+    parser.add_argument("--network-seed", type=int, default=58881,
                         help="Seed for network construction (fixed across trials).")
     parser.add_argument("--n-trials", type=int, default=20)
     parser.add_argument("--baseline-ms", type=int, default=2000)
