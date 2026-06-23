@@ -1,12 +1,5 @@
 """
-Plot the inter-layer connectivity strength sweep produced by
-interlayer_p_sweep.py.
-
-For each p run, compute the bipolar LFP PSD on every channel after the
-transient, then produce:
-    - one figure with subplots per channel showing (p x freq) heatmaps
-    - one figure showing band power (delta/theta/alpha/beta/gamma) vs p
-      per channel
+to do : simplify, rmeove comments and args if there are any
 """
 
 import os
@@ -45,6 +38,28 @@ BANDS = {
     'gamma': (30, 80),
 }
 # ---------------------------------------------------------------------------
+
+
+def _diverging_ticks(vmin, vmax, n_each=3):
+    """Colorbar ticks that always show the negative side of a TwoSlopeNorm.
+
+    With a tiny negative range and a large positive one, matplotlib's auto
+    locator places every tick on the positive half. Build explicit, rounded
+    ticks for each side so the negative end is always labelled.
+    """
+    def _nice(lo, hi, n):
+        if hi <= lo:
+            return []
+        step = (hi - lo) / n
+        mag = 10 ** np.floor(np.log10(step))
+        step = mag * min(s for s in (1, 2, 2.5, 5, 10) if s * mag >= step)
+        ticks = np.arange(np.ceil(lo / step) * step, hi + step / 2, step)
+        return list(ticks)
+
+    neg = _nice(vmin, 0, n_each) if vmin < 0 else []
+    pos = _nice(0, vmax, n_each) if vmax > 0 else []
+    ticks = sorted(set(neg + [0.0] + pos))
+    return [t for t in ticks if vmin - 1e-9 <= t <= vmax + 1e-9]
 
 
 def multitaper_psd(x, fs, NW=NW, nfft=None):
@@ -296,7 +311,8 @@ def plot_pct_change_3d_single_channel(p_vals, freqs, psd_stack,
                  f'[{vmin:+.0f}, {vmax:+.0f}]%  '
                  f'-- {lbl}  z={z:+.2f}', fontsize=12)
     ax.view_init(elev=25, azim=-60)
-    fig.colorbar(surf, ax=ax, shrink=0.55, pad=0.08, label='% change')
+    cbar = fig.colorbar(surf, ax=ax, shrink=0.55, pad=0.08, label='% change')
+    cbar.set_ticks(_diverging_ticks(vmin, vmax))
     fig.tight_layout()
     if SAVE_FIGS:
         os.makedirs(FIG_DIR, exist_ok=True)

@@ -298,7 +298,7 @@ def plot_laminar_pct_change_3d(freqs, depths, pct_change,
 
 
 if __name__ == '__main__':
-    base_path = 'results/trials_03_06'
+    base_path = 'results/trials_11_06'
     n_trials = 9
 
 

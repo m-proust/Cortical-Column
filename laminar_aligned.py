@@ -1,27 +1,5 @@
 """Laminar profile of LFP and CSD aligned to alpha and gamma troughs.
-
-Replicates van Kerkoerle et al. 2014 (PNAS) Fig. 3 panels A,B (alpha-aligned
-LFP and CSD) and E,F (gamma-aligned LFP and CSD). MUA panels (C,D / G,H)
-are deliberately omitted.
-
-Output layout::
-
-    <save_dir>/
-        L23/
-            kernel/
-                alpha_csd.png
-                alpha_lfp.png
-                gamma_csd.png
-                gamma_lfp.png
-            current/
-                ...
-        L4AB/
-            ...
-        ...
-
-For each reference layer, the max-alpha-power channel inside that layer is
-picked as the trough-detection reference (via the existing
-`find_alpha_reference_channel` helper, fed the appropriate band).
+to do : remove args, use defaults everywhere. 
 """
 
 import os

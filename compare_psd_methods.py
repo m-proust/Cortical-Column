@@ -1,16 +1,4 @@
-"""Side-by-side PSD comparison for ONE trial: main.py's view vs lesion view.
-
-For each bipolar channel we plot:
-    LEFT  -- main.py replica: Welch on the EARLY window (last `pre_ms` ms of
-             the baseline phase, i.e. just before the would-be stimulus),
-             nperseg same as main.py, single segment, hann window.
-             Peak marker = np.argmax(PSD)  (what main.py annotates).
-    RIGHT -- lesion-analysis replica: multitaper PSD on the LATE window
-             (the last `late_ms` ms of the trial). Peak markers =
-             scipy.signal.find_peaks with prominence on log10(PSD).
-
-We also print a per-channel table comparing the two methods so we can see
-where they disagree.
+"""to do : simplify, remove args and default to one trial dir 
 """
 import os
 import argparse

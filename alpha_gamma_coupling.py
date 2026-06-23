@@ -1,3 +1,4 @@
+# to do : simplify, remove arguments and just put defaults everywhere.  
 import os
 import glob
 import argparse
@@ -440,7 +441,11 @@ def plot_alpha_gamma_coupling(results, title_suffix='', save_path=None,
                               vmax_override=None):
   
     fig = plt.figure(figsize=(8, 12))
-    gs = gridspec.GridSpec(4, 1, height_ratios=[1, 1, 1, 0.5], hspace=0.35)
+    # Two columns: one for the plot, a narrow one for the colorbar, so that
+    # the colorbar does not steal width from the main axes. The bottom alpha
+    # trace shares the same plot column width (its colorbar slot stays empty).
+    gs = gridspec.GridSpec(4, 2, height_ratios=[1, 1, 1, 0.5],
+                           width_ratios=[1, 0.04], hspace=0.35, wspace=0.02)
 
     panel_labels = ['A', 'B', 'C', 'D']
     compartments = ['supragranular', 'granular', 'infragranular']
@@ -466,7 +471,7 @@ def plot_alpha_gamma_coupling(results, title_suffix='', save_path=None,
         vmax = min(vmax, 100)
 
     for i, (comp, comp_title) in enumerate(zip(compartments, compartment_titles)):
-        ax = fig.add_subplot(gs[i])
+        ax = fig.add_subplot(gs[i, 0])
 
         if comp in results:
             r = results[comp]
@@ -475,7 +480,8 @@ def plot_alpha_gamma_coupling(results, title_suffix='', save_path=None,
                 r['time_axis_ms'], r['freqs'], r['tfr_pct'],
                 cmap='RdBu_r', norm=norm, shading='auto',
             )
-            cb = fig.colorbar(im, ax=ax, label='% power modulation', shrink=0.8)
+            cax = fig.add_subplot(gs[i, 1])
+            cb = fig.colorbar(im, cax=cax, label='% power modulation')
             ax.set_title(f'{comp_title}  (n={r["n_epochs"]} epochs)',
                          fontsize=11, fontweight='bold')
 
@@ -499,7 +505,7 @@ def plot_alpha_gamma_coupling(results, title_suffix='', save_path=None,
         ax.text(-0.08, 1.05, panel_labels[i], transform=ax.transAxes,
                 fontsize=14, fontweight='bold')
 
-    ax_d = fig.add_subplot(gs[3])
+    ax_d = fig.add_subplot(gs[3, 0])
     if 'alpha_trace' in results:
         at = results['alpha_trace']
         ax_d.plot(at['time_axis_ms'], at['mean'], 'k-', lw=1.2)

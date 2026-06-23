@@ -565,6 +565,57 @@ def write_cluster_summary(clusters, freqs, depths, labels, log2fc, sig_mask,
                          f'{"up" if med > 0 else "down":>5}\n')
 
 
+def compute_all_masks(lesion_root, window_ms=WINDOW_MS, n_perm=N_PERM,
+                      lfp_key=LFP_KEY, connect_channels=CLUSTER_CONN_CHANNELS):
+    """Reproduce run()'s per-lesion computation EXACTLY (same shared rng advanced
+    in sorted lesion order) and return the arrays instead of plotting.
+
+    Returns: freqs, depths, labels, results
+    where results[lesion] = {'log2fc': (ch,f), 'sig_mask': (ch,f) bool}.
+
+    Keeping the rng discipline identical to run() guarantees the significance
+    masks match the *_cluster_heatmap.png figures bin-for-bin. Use this for any
+    re-plotting so the clusters never drift.
+    """
+    ctrl_dir = os.path.join(lesion_root, 'control')
+    ctrl_trials = load_trials(ctrl_dir, count_trials(ctrl_dir))
+    if lfp_key == 'bipolar_lfp_current':
+        ctrl_trials = _bipolar_current_from_trials(ctrl_trials)
+    psd_ctrl, freqs, depths, labels = per_trial_psd(
+        ctrl_trials, lfp_key, window_ms=window_ms)
+
+    lesion_names = sorted(
+        d for d in os.listdir(lesion_root)
+        if os.path.isdir(os.path.join(lesion_root, d)) and d != 'control'
+    )
+    rng = np.random.default_rng(RNG_SEED)  # same seed + sorted order as run()
+    results = {}
+    for lname in lesion_names:
+        ldir = os.path.join(lesion_root, lname)
+        n = count_trials(ldir)
+        if n == 0:
+            continue
+        try:
+            les_trials = load_trials(ldir, n)
+            if lfp_key == 'bipolar_lfp_current':
+                les_trials = _bipolar_current_from_trials(les_trials)
+            psd_les, freqs_l, _, _ = per_trial_psd(
+                les_trials, lfp_key, window_ms=window_ms)
+        except Exception as exc:
+            print(f'[{lname}] failed: {exc}')
+            continue
+        if not np.allclose(freqs_l, freqs):
+            continue
+        n_pair = min(psd_ctrl.shape[0], psd_les.shape[0])
+        d = np.log2((psd_les[:n_pair] + 1e-20) / (psd_ctrl[:n_pair] + 1e-20))
+        log2fc = d.mean(axis=0)
+        # NB: rng is the SAME object advanced across lesions -> matches run()
+        _, _, sig_mask, _ = cluster_permutation_test(
+            d, n_perm=n_perm, connect_channels=connect_channels, rng=rng)
+        results[lname] = {'log2fc': log2fc, 'sig_mask': sig_mask}
+    return freqs, depths, labels, results
+
+
 def run(lesion_root, fig_root, window_ms=WINDOW_MS, n_perm=N_PERM,
         lfp_key=LFP_KEY, connect_channels=CLUSTER_CONN_CHANNELS,
         plot_3d=False, plot_3d_only_sig=True,

@@ -1,4 +1,4 @@
-"""Stacked bar chart of relative interneuron proportions (PV / SOM / VIP) per layer."""
+"""to do :maybe merge this with the connectiivty plots. that way it's a script to plot the config, like what's the proportions and connectiivty."""
 import numpy as np
 import matplotlib.pyplot as plt
 from config.config import CONFIG

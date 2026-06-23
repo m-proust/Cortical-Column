@@ -1,10 +1,4 @@
-"""Plot LFPs for one trial: kernel method vs synaptic-current method.
-
-Generates 6 figures total:
-  - unipolar (raw amplitudes), unipolar (z-scored), unipolar PSD
-  - bipolar  (raw amplitudes), bipolar  (z-scored), bipolar  PSD
-
-Kernel = black, synaptic-current = gray.
+"""to do : simplify, remove args and comments
 """
 import argparse
 from pathlib import Path

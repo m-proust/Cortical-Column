@@ -1,3 +1,4 @@
+""" todo : remove phase distribution plots, and make the colors for each interneuron types the same as in ppc plots split"""
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import hilbert, butter, sosfiltfilt, freqz, sosfreqz, welch
@@ -127,7 +128,7 @@ def _cell_type_from_key(key):
     return key.split('_')[0]
 
 
-fname = "results/trials/trial_000.npz"
+fname = "results/trial_12_06_12s_stimuli/trial_000.npz"
 data = np.load(fname, allow_pickle=True)
 spike_data = (data["spike_data"].item()
               if data["spike_data"].size == 1
