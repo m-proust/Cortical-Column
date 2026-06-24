@@ -1,14 +1,13 @@
-"""Stimulus input builders. Each takes (column, w_ext_AMPA, w_ext_NMDA) and
-returns a list of PoissonInput objects.
+"""Stimulus input builders. Here we have feedforward and feedback inputs but you 
+can define any other input here and use it in main.py or trials.py
 """
 from brian2 import PoissonInput, Hz
 
+# in those functions you can define any kind of particular stimulus, specifying the neuron targets, n° of sources and rate of the poisson inputs.
+# you can also specify the target receptors (AMPA, GABA or NMDA)
 
 def feedforward_input(column, w_ext_AMPA, w_ext_NMDA):
-    """Feedforward thalamocortical AMPA drive onto L4C and L6 (E + PV).
 
-    PV gets a stronger drive than E in vivo; do not reduce PV weights below E.
-    """
     L4C = column.layers['L4C']
     L6 = column.layers['L6']
 
@@ -26,12 +25,6 @@ def feedforward_input(column, w_ext_AMPA, w_ext_NMDA):
 
 
 def feedback_input(column, w_ext_AMPA, w_ext_NMDA):
-    """Cortico-cortical feedback: AMPA+NMDA onto L23 and L5 SOM cells.
-
-    Martinotti / SOM-mediated dendritic feedback. LM->V1 feedback in mouse
-    preferentially targets SOM interneurons. This is the input used for the
-    trials saved under results/trials_06_05-fb.
-    """
     L23 = column.layers['L23']
     L5 = column.layers['L5']
 
@@ -49,6 +42,7 @@ def feedback_input(column, w_ext_AMPA, w_ext_NMDA):
 def make_profile(baseline=None, stim=None):
     return {"baseline": baseline, "stim": stim}
 
+# and here is the actual stimulus definition, where you specify which neurons to target during baseline and stimulus time (can be None)
 
 STIM_PROFILES = {
     "feedforward": make_profile(baseline=None, stim=feedforward_input),

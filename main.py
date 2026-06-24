@@ -1,14 +1,13 @@
-"""Run one cortical-column simulation and show the diagnostic figures.
+"""Run one simulation and show plots.
 
-Simulates a baseline (resting) epoch, then turns on a stimulus and shows
-rasters, rates and LFP/bipolar power. Use this for interactive single runs;
-use trials.py to save many trials to disk for the analysis scripts.
+Simulates a baseline epoch, then a stimulus epoch and shows
+rasters, rates and LFP/bipolar power. 
 
 Run:
     path/to/your/venv/bin/python main.py
 
-What you can change at the top of main():
-    STIM_PROFILE  -- "feedforward" or "feedback" (see stim_profiles.py)
+You can change
+    STIM_PROFILE  -- "feedforward" or "feedback", or any other stimulus you may have added (in stim_profiles.py)
     baseline_time -- ms of resting simulation before the stimulus
     stimuli_time  -- ms of simulation with the stimulus on
 """

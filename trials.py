@@ -1,19 +1,19 @@
-"""Run many simulation trials and save each one to disk for later analysis.
+"""Run many simulation trials and save each one for later analysis.
 
 For every trial the network is built once (fixed network seed) and the
 baseline + stimulus Poisson inputs are reseeded, so trial i is a matched noise
-realisation across conditions (used by the lesion analysis). Each trial is saved
+realisation across conditions. Each trial is saved
 as <save-dir>/trial_XXX.npz with rasters, rates, states and LFP.
 
 Run:
     path/to/your/venv/bin/python trials.py --save-dir saved_trials/my_run --n-trials 20
 
-What you can change:
-    STIM_PROFILE   -- "feedforward" or "feedback" (see stim_profiles.py)
-    --save-dir     -- where the trial_XXX.npz files go (required)
-    --n-trials     -- how many trials to run
-    --baseline-ms / --stimuli-ms -- epoch durations in ms
-    --network-seed -- fixed seed for network construction
+you can change:
+STIM_PROFILE   -- "feedforward" or "feedback" (see stim_profiles.py)
+--save-dir (required)    -- where the trial_XXX.npz will be saved
+--n-trials     -- how many trials to run
+--baseline-ms / --stimuli-ms -- epoch durations in ms
+--network-seed -- fixed seed for network construction
 """
 import os
 import shutil
@@ -27,7 +27,7 @@ from src.analysis import *
 from tools.lfp_kernel import calculate_lfp_kernel_method
 from stim_profiles import build_epoch
 
-# "feedforward" or "feedback"; override with the STIM_PROFILE env var.
+# "feedforward" or "feedback", you can override with the STIM_PROFILE env var.
 STIM_PROFILE = os.environ.get("STIM_PROFILE", "feedforward")
 
 
@@ -93,14 +93,12 @@ def run_single_trial(
     np.random.seed(stim_seed)
     b2.seed(stim_seed)
 
-    # ---- baseline epoch ----
-    # Add this profile's baseline drive (may be empty / no extra input).
+    # baseline 
     base_inputs = build_epoch(STIM_PROFILE, "baseline", column, w_ext_AMPA, w_ext_NMDA)
     column.network.add(*base_inputs)
     column.network.run(baseline_ms * ms)
 
-    # ---- stimulus epoch ----
-    # Add this profile's stimulus drive (may also be empty) on top.
+    # stimulus
     stim_inputs = build_epoch(STIM_PROFILE, "stim", column, w_ext_AMPA, w_ext_NMDA)
     column.network.add(*stim_inputs)
     column.network.run(stimuli_ms * ms)
@@ -249,7 +247,7 @@ def run_multiple_trials(
     baseline_ms=2000,
     stimuli_ms=2000,
     fs=10000,
-    save_dir="saved_trials/trials_02_06",
+    save_dir="saved_trials/trials_XX_XX",
     verbose=True,
 ):
     os.makedirs(save_dir, exist_ok=True)
