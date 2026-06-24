@@ -1,9 +1,12 @@
+"""Laminar PSTH/LFP plots for Cleo probe recordings.
+
+Entry point: analyze_and_plot_laminar_recording_mua().
+"""
 import numpy as np
 import brian2 as b2
 from brian2 import *
 from brian2tools import *
 from config.config import CONFIG
-import numpy as np
 import matplotlib.pyplot as plt
 
 def gaussian_kernel(bin_width, smooth_sigma=0.010, nsigma=5):
@@ -17,32 +20,6 @@ def gaussian_kernel(bin_width, smooth_sigma=0.010, nsigma=5):
 def smooth_psth(psth, bin_width, smooth_sigma=0.010):
     k = gaussian_kernel(bin_width, smooth_sigma, nsigma=5)
     return np.apply_along_axis(lambda x: np.convolve(x, k, mode='same'), 0, psth)
-
-def _merge_ranges(ranges):
-    if not ranges:
-        return None
-    zmins = [min(a, b) for a, b in ranges]
-    zmaxs = [max(a, b) for a, b in ranges]
-    return (min(zmins), max(zmaxs))
-
-def get_layer_bounds_from_config(CONFIG):
-    layers = CONFIG.get('layers', {})
-    sg_ranges = []
-    if 'L23' in layers: sg_ranges.append(tuple(layers['L23']['coordinates']['z']))
-    if 'L1'  in layers: sg_ranges.append(tuple(layers['L1']['coordinates']['z'])) 
-    g_ranges  = []
-    if 'L4' in layers:  g_ranges.append(tuple(layers['L4']['coordinates']['z']))
-
-    ig_ranges = []
-    if 'L5' in layers:  ig_ranges.append(tuple(layers['L5']['coordinates']['z']))
-    if 'L6' in layers:  ig_ranges.append(tuple(layers['L6']['coordinates']['z']))
-
-    bounds = {
-        'SG': _merge_ranges(sg_ranges),
-        'G' : _merge_ranges(g_ranges),
-        'IG': _merge_ranges(ig_ranges),
-    }
-    return bounds
 
 def compute_bipolar_lfp(lfp):
     return lfp[:, 1:] - lfp[:, :-1]
@@ -70,31 +47,6 @@ def plot_channel_bipolar_lfp(lfp_bip, lfp_time, depths_bip_mm, event_times=None,
     axes[-1].set_xlabel('Time from stimulus (ms)', fontsize=9)
     return fig, axes
 
-def assign_layers_for_channels(z_coords, bounds):
-    masks = {k: np.zeros(len(z_coords), dtype=bool) for k in ['SG','G','IG']}
-    for k in ['SG','G','IG']:
-        br = bounds.get(k)
-        if br is None:
-            continue
-        zmin, zmax = min(br), max(br)
-        masks[k] = (z_coords >= zmin) & (z_coords <= zmax)
-    return masks
-
-def assign_layers_for_channels(z_coords, bounds):
-    masks = {k: np.zeros(len(z_coords), dtype=bool) for k in ['SG','G','IG']}
-    for k in ['SG','G','IG']:
-        br = bounds.get(k)
-        if br is None:
-            continue
-        zmin, zmax = min(br), max(br)
-        masks[k] = (z_coords >= zmin) & (z_coords <= zmax)
-    return masks
-
-def get_original_and_depths_mm(probe_coords_mm):
-    depths_original_mm = np.asarray(probe_coords_mm)[:, 2]
-    depths_mm  = 0.5 * (depths_original_mm[:-1] + depths_original_mm[1:])
-    return depths_original_mm, depths_mm
-
 def _estimate_contact_spacing_mm(probe_coords_mm):
     z = np.asarray(probe_coords_mm)[:, 2]
     dz = np.diff(np.sort(z))
@@ -108,22 +60,18 @@ def _layer_labels_from_relindex(rel_idx, g_half_thick_contacts=0.5):
     return out
 
 def make_masks_from_relindex_bp(rel_idx, n_sg, n_g, n_ig):
-    """
-    Assigns exact counts by sorting contacts by relative depth:
-    shallowest -> deepest. Returns boolean masks for SG/G/IG.
-    """
+    """SG/G/IG masks with exact contact counts, assigned deepest-first."""
     rel_idx = np.asarray(rel_idx)
     N = rel_idx.size
     if n_sg + n_g + n_ig != N:
         raise ValueError(f"Counts must sum to {N} (got {n_sg+n_g+n_ig}).")
 
-    order = np.argsort(rel_idx)         # deepest (most negative) first
+    order = np.argsort(rel_idx)  # deepest (most negative) first
     masks = {
         'SG': np.zeros(N, dtype=bool),
         'G' : np.zeros(N, dtype=bool),
         'IG': np.zeros(N, dtype=bool),
     }
-    # IG = deepest, SG = most superficial
     masks['IG'][order[:n_ig]] = True
     masks['G' ][order[n_ig:n_ig+n_g]] = True
     masks['SG'][order[n_ig+n_g:]] = True
@@ -279,14 +227,15 @@ def build_psth_from_mua(mua, probe, t_pre, t_post, bin_width,
     
     return psth, t_centers
 
-def analyze_and_plot_laminar_recording_mua(sim, column, probe, lfp_sig, mua, 
+def analyze_and_plot_laminar_recording_mua(sim, column, probe, lfp_sig, mua,
                                            stim_onset_time=500*b2.ms,
                                            plot=True):
-    lfp = lfp_sig.lfp * 1e9
+    """Build PSTH and mono/bipolar LFP around stimulus, grouped into SG/G/IG layers."""
+    lfp = lfp_sig.lfp * 1e9  # V -> nV
 
-    t_pre = 0.2   
-    t_post = 0.5 
-    bin_width = 0.002 
+    t_pre = 0.2   # s before stimulus
+    t_post = 0.5  # s after stimulus
+    bin_width = 0.002
 
     event_times = np.array([stim_onset_time / b2.second]) * b2.second
 
@@ -311,14 +260,12 @@ def analyze_and_plot_laminar_recording_mua(sim, column, probe, lfp_sig, mua,
 
     masks_psth   = make_masks_from_relindex(rel_orig)
     masks_lfp    = make_masks_from_relindex(rel_orig)
-    masks_lfp_bp = make_masks_from_relindex(rel_bip)  
     n_sg, n_g, n_ig = 8, 2, 5
     masks_lfp_bp = make_masks_from_relindex_bp(rel_bip, n_sg, n_g, n_ig)
 
-    lfp_win = lfp[time_mask, :]  
+    lfp_win = lfp[time_mask, :]
     lfp_t   = lfp_time[time_mask]
-
-    lfp_bip = compute_bipolar_lfp(lfp_win) 
+    lfp_bip = compute_bipolar_lfp(lfp_win)
 
     if not plot:
         return {

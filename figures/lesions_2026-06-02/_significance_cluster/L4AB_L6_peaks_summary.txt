@@ -1,8 +1,0 @@
-# Lesion L4AB_L6 -- residual peaks/troughs
-# Local extrema of (log2FC - smooth baseline) that lie inside cluster-significant bins.
-# Sign +1 = focal power increase on top of baseline.
-# Sign -1 = focal power decrease on top of baseline.
-
-sign      channel   depth  freq(Hz)   log2FC  baseline  residual  prominence
-   +      Ch4-Ch3  -0.415     29.91   +1.191    +0.356    +0.835       1.702
-   +      Ch3-Ch2  -0.565     51.88   +1.365    +0.435    +0.931       1.518

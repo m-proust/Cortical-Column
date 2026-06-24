@@ -1,4 +1,0 @@
-# Lesion L4AB_L5
-# Significant band/channel combinations (>=25% of bins pass FDR<0.05)
-
-  (no band/channel combination reached the threshold — this lesion looks like noise)

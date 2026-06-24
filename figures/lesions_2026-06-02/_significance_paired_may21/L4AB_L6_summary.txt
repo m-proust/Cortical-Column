@@ -1,5 +1,0 @@
-# Lesion L4AB_L6
-# Significant band/channel combinations (>=25% of bins pass FDR<0.05)
-
-band       channel        depth  frac_sig  med_log2FC   max_abs   dir
-alpha      Ch4-Ch3       -0.415      0.25      +1.132     1.251    up

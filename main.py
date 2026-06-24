@@ -1,3 +1,17 @@
+"""Run one cortical-column simulation and show the diagnostic figures.
+
+Simulates a baseline (resting) epoch, then turns on a stimulus and shows
+rasters, rates and LFP/bipolar power. Use this for interactive single runs;
+use trials.py to save many trials to disk for the analysis scripts.
+
+Run:
+    path/to/your/venv/bin/python main.py
+
+What you can change at the top of main():
+    STIM_PROFILE  -- "feedforward" or "feedback" (see stim_profiles.py)
+    baseline_time -- ms of resting simulation before the stimulus
+    stimuli_time  -- ms of simulation with the stimulus on
+"""
 import numpy as np
 import brian2 as b2
 from brian2 import *
@@ -7,6 +21,10 @@ from src.column import CorticalColumn
 from src.visualization import *
 from src.analysis import *
 from tools.lfp_kernel import calculate_lfp_kernel_method
+from stim_profiles import build_epoch
+
+STIM_PROFILE = "feedback"
+
 
 def main():
     seed = 58925
@@ -15,118 +33,40 @@ def main():
     b2.start_scope()
     b2.defaultclock.dt = CONFIG['simulation']['DT']
 
-    
-    baseline_time = 2000 # In ms, time during which to run the baseline simulation
-    stimuli_time = 2500 # In ms, time during which to run the simulation after adding the stimuli
+    baseline_time = 2000  # ms of resting simulation
+    stimuli_time = 2500   # ms of simulation with stimulus on
 
-    print(" Creating cortical column...")
+    print("Creating cortical column...")
     column = CorticalColumn(column_id=0, config=CONFIG)
- 
-    
+
     for layer_name, layer in column.layers.items():
-        add_heterogeneity_to_layer(layer, CONFIG) # optional
-    
+        add_heterogeneity_to_layer(layer, CONFIG)
+
     all_monitors = column.get_all_monitors()
-    
-   
-
     w_ext_AMPA = CONFIG['synapses']['Q']['EXT_AMPA']
-   
+    w_ext_NMDA = CONFIG['synapses']['Q'].get('EXT_NMDA', w_ext_AMPA)
 
-   
-
-    
-   
+    # ---- baseline epoch ----
+    base_inputs = build_epoch(STIM_PROFILE, "baseline", column, w_ext_AMPA, w_ext_NMDA)
+    column.network.add(*base_inputs)
     column.network.run(baseline_time * ms)
-   
-    
-    L4C = column.layers['L4C']
-    cfg_L4C = CONFIG['layers']['L4C']
-   
-    
-    L4C_E_grp = L4C.neuron_groups['E']
-    N_stim_E = 30
-    stim_rate_E = 5*Hz  
-    L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
-                                  N=N_stim_E, 
-                                  rate=stim_rate_E, 
-                                  weight=w_ext_AMPA)  
-    
-    
-    L4C_PV_grp = L4C.neuron_groups['PV']
-    N_stim_PV = 40
-    stim_rate_PV = 7*Hz 
-    L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
-                               N=N_stim_PV, 
-                               rate=stim_rate_PV, 
-                               weight=w_ext_AMPA*2.5)  
-    
-    
-    L6 = column.layers['L6']
-    cfg_L6 = CONFIG['layers']['L6']
-    L6_PV_grp = L6.neuron_groups['PV']
-    N_stim_L6_PV = 10
-    stim_rate_L6_PV = 6*Hz  
-    
-    L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
-                             N=N_stim_L6_PV, 
-                             rate=stim_rate_L6_PV, 
-                             weight=w_ext_AMPA*1.5)
-    L6_E_grp = L6.neuron_groups['E']
-    N_stim_L6_E = 10
-    stim_rate_L6_E = 5*Hz  
-    
-    L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
-                             N=N_stim_L6_E, 
-                             rate=stim_rate_L6_E, 
-                             weight=w_ext_AMPA*1.5)
 
-
-
-    column.network.add( L6_E_stim,L6_PV_stim)
-    column.network.add(L4C_E_stimAMPA,L4C_PV_stim)
-    
-
-   
-
-    # L4C_PV_stim2 = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
-    #                            N=70, 
-    #                            rate=stim_rate_PV, 
-    #                            weight=w_ext_AMPA*1.5)  
-
-    # column.network.add(L4C_PV_stim2)
-
-    column.network.run(stimuli_time* ms)
+    # ---- stimulus epoch ----
+    stim_inputs = build_epoch(STIM_PROFILE, "stim", column, w_ext_AMPA, w_ext_NMDA)
+    column.network.add(*stim_inputs)
+    column.network.run(stimuli_time * ms)
 
     print("Simulation complete")
-    
+
     spike_monitors = {}
     state_monitors = {}
     rate_monitors = {}
     neuron_groups = {}
-    
     for layer_name, monitors in all_monitors.items():
-        spike_monitors[layer_name] = {
-            k: v for k, v in monitors.items() if 'spikes' in k
-        }
-        state_monitors[layer_name] = {
-            k: v for k, v in monitors.items() if 'state' in k
-        }
-        rate_monitors[layer_name] = {
-            k: v for k, v in monitors.items() if 'rate' in k
-        }
+        spike_monitors[layer_name] = {k: v for k, v in monitors.items() if 'spikes' in k}
+        state_monitors[layer_name] = {k: v for k, v in monitors.items() if 'state' in k}
+        rate_monitors[layer_name] = {k: v for k, v in monitors.items() if 'rate' in k}
         neuron_groups[layer_name] = column.layers[layer_name].neuron_groups
-    
-    for layer_name, monitors in all_monitors.items():
-        spike_monitors[layer_name] = {
-            k: v for k, v in monitors.items() if 'spikes' in k
-        }
-        state_monitors[layer_name] = {
-            k: v for k, v in monitors.items() if 'state' in k
-        }
-        rate_monitors[layer_name] = {
-            k: v for k, v in monitors.items() if 'rate' in k
-        }
 
     electrode_positions = CONFIG['electrode_positions']
 
@@ -136,7 +76,6 @@ def main():
         neuron_groups,
         CONFIG['layers'],
         electrode_positions,
-        # fs=10000,
         sim_duration_ms=baseline_time + stimuli_time
     )
 
@@ -179,18 +118,13 @@ def main():
     fig_lfp = plot_lfp_comparison(lfp_signals, bipolar_signals, time_array, electrode_positions,
                         channel_labels, channel_depths, figsize=(18, 12), time_range=(1000, 3500))
 
-    fig_bipolar_stack = plot_bipolar_stack(bipolar_signals, channel_depths, time_array,
-                                           time_range=(1000, 3500), color='#ff6d1e')
+    
 
     fig_mean_rates = plot_mean_rates_bar(rate_monitors, CONFIG['layers'],
                                          baseline_time, stimuli_time,
                                          transient_skip=300)
 
-    fig_power_global = plot_bipolar_power_global(bipolar_signals, channel_labels,
-                                                 channel_depths, time_array,
-                                                 baseline_time=baseline_time,
-                                                 pre_stim_duration=500,
-                                                 fmax=300)
+
 
 
     plt.show()

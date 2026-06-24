@@ -1,14 +1,16 @@
+"""Point-source LFP: sum synaptic currents weighted by 1/distance to each electrode.
+
+Alternative to the kernel method in lfp_kernel.py; trials.py computes both per trial.
+"""
 import numpy as np
 from brian2 import mm, ms, amp, Hz
 
 
-
-R_E_OHM_M = 2.30
-MIN_DIST_M = 10e-6   # 10 um
+R_E_OHM_M = 2.30     # extracellular resistivity
+MIN_DIST_M = 10e-6   # floor on neuron-electrode distance (10 um)
 
 
 def _gather_positions(neuron_groups, layer_configs):
- 
     all_xyz = []
     index_map = {}
     cursor = 0
@@ -37,7 +39,7 @@ def calculate_lfp_current_method(state_monitors,
                                  include_excitatory=True,
                                  include_inhibitory=True,
                                  use_absolute_distance=True):
-    
+    """Return (lfp_uV[n_elec, n_t], time_array_ms) from synaptic-current monitors."""
     positions_m, index_map = _gather_positions(neuron_groups, layer_configs)
     N_total = positions_m.shape[0]
     if N_total == 0:

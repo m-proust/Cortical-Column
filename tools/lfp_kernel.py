@@ -1,21 +1,18 @@
+"""Kernel-based LFP: convolve each spike train with a depth/distance-weighted
+synaptic kernel (Hagen-style), summed at each electrode. This is the production method.
+"""
 import numpy as np
 from brian2 import ms, mm
 
 
-LAMBDA_SPACE_MM = 0.34
-
-
-V_AXON_MM_PER_MS = 0.166
-
-BASE_DELAY_MS = 10.4
-
-SIGMA_INHIB_MS = 2.1
-
-SIGMA_EXCIT_MS = 3.15
-
+LAMBDA_SPACE_MM = 0.34      # lateral decay length of the contribution
+V_AXON_MM_PER_MS = 0.166    # axonal conduction speed
+BASE_DELAY_MS = 10.4        # fixed synaptic/processing delay
+SIGMA_INHIB_MS = 2.1        # kernel width, inhibitory
+SIGMA_EXCIT_MS = 3.15       # kernel width, excitatory
 KERNEL_HALF_WIDTH_MS = 25.0
 
-
+# reference depth profile of kernel amplitude (uV), excitatory vs inhibitory
 DEPTH_TABLE = {
     'rel_depths_mm': np.array([-0.4, 0.0, 0.4, 0.8]),
     'i_amplitudes_uV': np.array([-0.2, 3.0, -1.2, 0.3]),
@@ -64,7 +61,7 @@ def _compute_3d_distance(neuron_x, neuron_y, neuron_z, elec_x, elec_y, elec_z):
 def calculate_lfp_kernel_method(spike_monitors, neuron_groups, layer_configs,
                                 electrode_positions, dt_ms=0.1,
                                 sim_duration_ms=2000):
- 
+    """Return (lfp_signals[n_elec, n_t], time_array_ms) from spike monitors."""
     n_samples = int(sim_duration_ms / dt_ms)
     n_electrodes = len(electrode_positions)
     time_array = np.arange(n_samples) * dt_ms
@@ -159,22 +156,3 @@ def calculate_lfp_kernel_method(spike_monitors, neuron_groups, layer_configs,
                
 
     return lfp_signals, time_array
-
-
-def compute_bipolar_lfp(lfp_signals, electrode_positions):
-
-    n_electrodes = lfp_signals.shape[0]
-    n_samples = lfp_signals.shape[1]
-
-    bipolar_signals = np.zeros((n_electrodes - 1, n_samples))
-    channel_labels = []
-    channel_depths = []
-
-    for i in range(n_electrodes - 1):
-        bipolar_signals[i] = lfp_signals[i + 1] - lfp_signals[i]
-        channel_labels.append(f'ch{i}-ch{i+1}')
-        z_mid = (electrode_positions[i][2] +
-                 electrode_positions[i + 1][2]) / 2.0
-        channel_depths.append(z_mid)
-
-    return bipolar_signals, channel_labels, channel_depths

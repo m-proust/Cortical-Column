@@ -1,3 +1,20 @@
+"""Run many simulation trials and save each one to disk for later analysis.
+
+For every trial the network is built once (fixed network seed) and the
+baseline + stimulus Poisson inputs are reseeded, so trial i is a matched noise
+realisation across conditions (used by the lesion analysis). Each trial is saved
+as <save-dir>/trial_XXX.npz with rasters, rates, states and LFP.
+
+Run:
+    path/to/your/venv/bin/python trials.py --save-dir saved_trials/my_run --n-trials 20
+
+What you can change:
+    STIM_PROFILE   -- "feedforward" or "feedback" (see stim_profiles.py)
+    --save-dir     -- where the trial_XXX.npz files go (required)
+    --n-trials     -- how many trials to run
+    --baseline-ms / --stimuli-ms -- epoch durations in ms
+    --network-seed -- fixed seed for network construction
+"""
 import os
 import shutil
 import numpy as np
@@ -8,6 +25,10 @@ from src.column import CorticalColumn
 from src.visualization import *
 from src.analysis import *
 from tools.lfp_kernel import calculate_lfp_kernel_method
+from stim_profiles import build_epoch
+
+# "feedforward" or "feedback"; override with the STIM_PROFILE env var.
+STIM_PROFILE = os.environ.get("STIM_PROFILE", "feedforward")
 
 
 CONFIG_FILES = [
@@ -17,6 +38,7 @@ CONFIG_FILES = [
     "config/connection_probabilities.csv",
     "main.py",
     "trials.py",
+    "stim_profiles.py",
 ]
 
 def save_config_snapshot(save_dir, base_dir=None):
@@ -51,12 +73,11 @@ def run_single_trial(
 
     total_time = baseline_ms + stimuli_ms
 
-    baseline_seed = int(network_seed + 2 * trial_id + 1)
     stim_seed = int(network_seed + 2 * trial_id + 2)
 
     if verbose:
         print(f"\n=== Trial {trial_id}  |  network seed {network_seed}  |  "
-              f"baseline seed {baseline_seed}  |  stim seed {stim_seed} ===")
+              f" stim seed {stim_seed} ===")
         print("Creating cortical column...")
 
     column = CorticalColumn(column_id=0, config=config)
@@ -67,73 +88,21 @@ def run_single_trial(
     w_ext_AMPA = config['synapses']['Q']['EXT_AMPA']
     w_ext_NMDA = CONFIG['synapses']['Q'].get('EXT_NMDA', w_ext_AMPA)
 
-    np.random.seed(baseline_seed)
-    b2.seed(baseline_seed)
     
 
     np.random.seed(stim_seed)
     b2.seed(stim_seed)
-    feedback_inputs = []
 
-    L23 = column.layers['L23']
-    L5  = column.layers['L5']
-    L6  = column.layers['L6']
-
-
-    L4C = column.layers['L4C']
-    cfg_L4C = CONFIG['layers']['L4C']
-   
-    
-    L4C_E_grp = L4C.neuron_groups['E']
-    N_stim_E = 30
-    stim_rate_E = 5*Hz  
-    L4C_E_stimAMPA = PoissonInput(L4C_E_grp, 'gE_AMPA', 
-                                  N=N_stim_E, 
-                                  rate=stim_rate_E, 
-                                  weight=w_ext_AMPA)  
-    
-    
-    L4C_PV_grp = L4C.neuron_groups['PV']
-    N_stim_PV = 40
-    stim_rate_PV = 7*Hz 
-    L4C_PV_stim = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
-                               N=N_stim_PV, 
-                               rate=stim_rate_PV, 
-                               weight=w_ext_AMPA*2.5)  
-    
-    
-    L6 = column.layers['L6']
-    cfg_L6 = CONFIG['layers']['L6']
-    L6_PV_grp = L6.neuron_groups['PV']
-    N_stim_L6_PV = 10
-    stim_rate_L6_PV = 6*Hz  
-    
-    L6_PV_stim = PoissonInput(L6_PV_grp, 'gE_AMPA',
-                             N=N_stim_L6_PV, 
-                             rate=stim_rate_L6_PV, 
-                             weight=w_ext_AMPA*1.5)
-    L6_E_grp = L6.neuron_groups['E']
-    N_stim_L6_E = 10
-    stim_rate_L6_E = 5*Hz  
-    
-    L6_E_stim = PoissonInput(L6_E_grp, 'gE_AMPA',
-                             N=N_stim_L6_E, 
-                             rate=stim_rate_L6_E, 
-                             weight=w_ext_AMPA*1.5)
-
-
-
-    column.network.add(L6_E_stim, L6_PV_stim)
-    column.network.add(L4C_E_stimAMPA, L4C_PV_stim)
-    # L4C_PV_stim2 = PoissonInput(L4C_PV_grp, 'gE_AMPA', 
-    #                            N=70, 
-    #                            rate=7*Hz, 
-    #                            weight=w_ext_AMPA*1.5)  
-
-    # column.network.add(L4C_PV_stim2)
-
+    # ---- baseline epoch ----
+    # Add this profile's baseline drive (may be empty / no extra input).
+    base_inputs = build_epoch(STIM_PROFILE, "baseline", column, w_ext_AMPA, w_ext_NMDA)
+    column.network.add(*base_inputs)
     column.network.run(baseline_ms * ms)
 
+    # ---- stimulus epoch ----
+    # Add this profile's stimulus drive (may also be empty) on top.
+    stim_inputs = build_epoch(STIM_PROFILE, "stim", column, w_ext_AMPA, w_ext_NMDA)
+    column.network.add(*stim_inputs)
     column.network.run(stimuli_ms * ms)
 
     if verbose:
@@ -248,11 +217,8 @@ def run_single_trial(
     data = {
         "trial_id": trial_id,
         "network_seed": network_seed,
-        "baseline_seed": baseline_seed,
         "stim_seed": stim_seed,
-        "stim_rates": {
-            "L4C_E": 5.0, "L4C_PV": 7.0, "L6_E": 5.0, "L6_PV": 6.0,
-        },
+        "stim_profile": STIM_PROFILE,
         "time_array_ms": np.array(time_array),
         "electrode_positions": np.array(electrode_positions),
         "channel_labels": np.array(channel_labels, dtype=object),
@@ -283,7 +249,7 @@ def run_multiple_trials(
     baseline_ms=2000,
     stimuli_ms=2000,
     fs=10000,
-    save_dir="results/trials_02_06",
+    save_dir="saved_trials/trials_02_06",
     verbose=True,
 ):
     os.makedirs(save_dir, exist_ok=True)

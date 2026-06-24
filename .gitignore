@@ -4,11 +4,10 @@
 *.npy
 /bin
 /results
-/test_trials
-/full_trials
-src/cleo_plots.py
+/figures
+/saved_trials
 .DS_Store
 /venv
 *.png
-*.npz
 *.db
+*.npz

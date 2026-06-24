@@ -1,6 +1,4 @@
-"""
-Column class implementation 
-"""
+"""Cortical column: assembles layers, inter-layer synapses and a recording probe."""
 import brian2 as b2
 from brian2 import *
 from .layer import CorticalLayer
@@ -82,9 +80,8 @@ class CorticalColumn:
         }
         
         base_ms = inter_delay_EE.get((source_layer, target_layer), 1.8)
-        
-        # Adjust by presynaptic cell type (axon speed differences)
-  
+
+        # scale by presynaptic axon speed
         pre_scale = {
             'E':   1.0,
             'PV':  0.75,
@@ -145,11 +142,9 @@ class CorticalColumn:
                         on_pre=on_pre
                     )
                     syn.connect(p=float(prob))
-                    #optional delays 
                     syn.delay = delay_expr
-                    
                     self.inter_layer_synapses[connection_name] = syn
-                    
+
                 else:
                     g_inh = cond_dict.get(conn, 0.02)
                     target_var = 'g' + pre  

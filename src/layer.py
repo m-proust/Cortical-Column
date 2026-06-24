@@ -1,7 +1,4 @@
-"""
-Layer class implementation
-"""
-
+"""Cortical layer: neuron groups, intrinsic params, internal synapses and inputs."""
 import brian2 as b2
 from brian2 import *
 import numpy as np
@@ -97,7 +94,7 @@ class CorticalLayer:
             # Start with global params, then override with layer-specific
             ip_global = intrinsic_global.get(param_key, intrinsic_global.get(pop_name, {}))
             ip_layer = intrinsic_layer.get(param_key, intrinsic_layer.get(pop_name, {}))
-            ip = dict(ip_global, **ip_layer)  # Layer-specific overrides global
+            ip = dict(ip_global, **ip_layer)  # layer-specific overrides global
        
             set_if_exists(g, 'a', ip.get('a', 0*nS))
             set_if_exists(g, 'b', ip.get('b', 0*pA))
@@ -164,7 +161,6 @@ class CorticalLayer:
             delay_mean, delay_std = self._get_delay_params(pre, post)
             
             if excitatory:
-                #  AMPA and NMDA conductances
                 ampa_key = f'{connection}_AMPA'
                 nmda_key = f'{connection}_NMDA'
                 

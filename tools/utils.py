@@ -1,8 +1,10 @@
+"""Build layer and inter-layer connectivity dicts from the CSV matrices."""
 import pandas as pd
 
 
 def load_connectivity_from_csv(conn_prob_file, cond_ampa_file, cond_nmda_file,
                                layers=None, cell_types=None):
+    """Read probability/AMPA/NMDA CSVs into per-layer and inter-layer config dicts."""
 
     conn_prob_df = pd.read_csv(conn_prob_file, index_col=0)
     cond_ampa_df = pd.read_csv(cond_ampa_file, index_col=0)
