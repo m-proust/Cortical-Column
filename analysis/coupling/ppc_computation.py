@@ -27,6 +27,21 @@ OUT_DIR = "figures/ppc"
 COLORS = {'E': '#2E8B57', 'PV': '#C0392B', 'SOM': '#1F4E96', 'VIP': '#D4A017'}
 
 
+LAYER_Z_RANGES = {
+    'L23':  (0.45, 1.10),
+    'L4AB': (0.14, 0.45),
+    'L4C':  (-0.14, 0.14),
+    'L5':   (-0.34, -0.14),
+    'L6':   (-0.62, -0.34),
+}
+
+
+def bipolar_channel_for_layer(layer, channel_depths):
+    """Bipolar channel nearest the centre of the layer"""
+    lo, hi = LAYER_Z_RANGES[layer]
+    return int(np.argmin(np.abs(channel_depths - 0.5 * (lo + hi))))
+
+
 def bandpass(signal, fs, low, high, order=3):
     nyq = fs / 2.0
     f_lo, f_hi = max(low, 1.0), min(high, nyq - 1.0)
@@ -60,7 +75,6 @@ def get_spike_phases_per_neuron(spike_trains, t_lfp, inst_phase, t_discard, t_en
 
 
 def compute_ppc(phases):
-    """Pairwise phase consistency: bias-free coupling estimate in [-1, 1]."""
     N = len(phases)
     if N < 2:
         return np.nan
@@ -106,6 +120,75 @@ def cell_type_from_key(key):
     return 'E' if 'E' in head.upper() and len(head) <= 2 else head
 
 
+def compute_ppc_for_source(all_spike_trains, layer_lfp, fs_lfp, t_discard, t_end):
+
+    out = {}
+    for layer_name in all_spike_trains:
+        if layer_name not in layer_lfp:
+            continue
+        out[layer_name] = {}
+        lfp_sig, t_full = layer_lfp[layer_name]
+        mask = (t_full >= t_discard) & (t_full <= t_end)
+        dt_lfp = 1.0 / fs_lfp
+        lfp_normalized = normalize_lfp(lfp_sig[mask], dt_lfp)
+        t_lfp = t_full[mask]
+
+        for key, trains in all_spike_trains[layer_name].items():
+            ct = cell_type_from_key(key)
+            max_n = MAX_E_NEURONS if ct == 'E' else None
+            out[layer_name][ct] = compute_ppc_spectrum(
+                trains, lfp_normalized, t_lfp, fs_lfp, t_discard, t_end,
+                FREQ_RANGE, FREQ_STEP, BW_HALF, MIN_SPIKES, max_n)
+        print(f"  done {layer_name}")
+    return out
+
+
+def plot_ppc(results, ylabel, out_path):
+    layers = list(results.keys())
+    fig, axes = plt.subplots(len(layers), 1, figsize=(10, 5 * len(layers)),
+                             squeeze=False)
+    for i, layer in enumerate(layers):
+        ax = axes[i, 0]
+        for ct in ['E', 'PV', 'SOM', 'VIP']:
+            if ct not in results[layer]:
+                continue
+            freqs, ppc_mean, ppc_sem = results[layer][ct]
+            valid = ~np.isnan(ppc_mean)
+            if not np.any(valid):
+                continue
+            ax.plot(freqs[valid], ppc_mean[valid], color=COLORS[ct],
+                    linewidth=2, label=ct)
+            ax.fill_between(freqs[valid], ppc_mean[valid] - ppc_sem[valid],
+                            ppc_mean[valid] + ppc_sem[valid],
+                            color=COLORS[ct], alpha=0.15)
+        ax.set_ylabel(ylabel, fontsize=12)
+        ax.set_xlim(FREQ_RANGE)
+        ax.set_ylim(bottom=0)
+        ax.legend(fontsize=11)
+        ax.set_title(layer, fontsize=13, fontstyle='italic')
+        if i == len(layers) - 1:
+            ax.set_xlabel('Frequency (Hz)', fontsize=12)
+
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+    print(f"saved {out_path}")
+
+
+def print_gamma_summary(results, label):
+    print(f"\n=== gamma-band (30-50 Hz) PPC: {label} ===")
+    for layer_name in results:
+        print(f"\n{layer_name}:")
+        for ct in ['PV', 'E', 'SOM', 'VIP']:
+            if ct not in results[layer_name]:
+                continue
+            freqs, ppc_mean, _ = results[layer_name][ct]
+            vals = ppc_mean[(freqs >= 30) & (freqs <= 50)]
+            if np.any(~np.isnan(vals)):
+                print(f"  {ct}: mean={np.nanmean(vals):.6f}, "
+                      f"peak={np.nanmax(vals):.6f}")
+
+
 # ---- load trial ----
 data = np.load(TRIAL_NPZ, allow_pickle=True)
 spike_data = (data["spike_data"].item() if data["spike_data"].size == 1
@@ -122,61 +205,48 @@ all_spike_trains = {
     for layer, layer_mons in spike_data.items()
 }
 
-# ---- compute PPC spectra ----
 t_end = T_DISCARD + T_ANALYSIS
-results = {}
-for layer_name in all_spike_trains:
-    results[layer_name] = {}
-    lfp_full = lfp_full_data[layer_name]
-    t_full = np.arange(len(lfp_full)) * dt_sec
-    mask = (t_full >= T_DISCARD) & (t_full <= t_end)
-    lfp_normalized = normalize_lfp(lfp_full[mask], dt_sec)
-    t_lfp = t_full[mask]
-
-    for key, trains in all_spike_trains[layer_name].items():
-        ct = cell_type_from_key(key)
-        max_n = MAX_E_NEURONS if ct == 'E' else None
-        results[layer_name][ct] = compute_ppc_spectrum(
-            trains, lfp_normalized, t_lfp, fs, T_DISCARD, t_end,
-            FREQ_RANGE, FREQ_STEP, BW_HALF, MIN_SPIKES, max_n)
-    print(f"  done {layer_name}")
-
-# ---- plot ----
 os.makedirs(OUT_DIR, exist_ok=True)
-layers = list(results.keys())
-fig, axes = plt.subplots(len(layers), 1, figsize=(10, 5 * len(layers)), squeeze=False)
-for i, layer in enumerate(layers):
-    ax = axes[i, 0]
-    for ct in ['E', 'PV', 'SOM', 'VIP']:
-        if ct not in results[layer]:
-            continue
-        freqs, ppc_mean, ppc_sem = results[layer][ct]
-        valid = ~np.isnan(ppc_mean)
-        if not np.any(valid):
-            continue
-        ax.plot(freqs[valid], ppc_mean[valid], color=COLORS[ct], linewidth=2, label=ct)
-        ax.fill_between(freqs[valid], ppc_mean[valid] - ppc_sem[valid],
-                        ppc_mean[valid] + ppc_sem[valid], color=COLORS[ct], alpha=0.15)
-    ax.set_ylabel('Spike-LFP phase locking (PPC)', fontsize=12)
-    ax.set_xlim(FREQ_RANGE)
-    ax.set_ylim(bottom=0)
-    ax.legend(fontsize=11)
-    ax.set_title(layer, fontsize=13, fontstyle='italic')
-    if i == len(layers) - 1:
-        ax.set_xlabel('Frequency (Hz)', fontsize=12)
 
-plt.tight_layout()
-out = os.path.join(OUT_DIR, "ppc_spectrum.png")
-plt.savefig(out, dpi=150, bbox_inches='tight')
-print(f"saved {out}")
+# LFP source 1: convolving each E spike with a kernel (same method as in Farzin et al. 2025)
+kernel_lfp = {layer: (np.asarray(lfp_full_data[layer], dtype=float),
+                      np.arange(len(lfp_full_data[layer])) * dt_sec)
+              for layer in all_spike_trains}
 
-# ---- gamma-band PPC summary ----
-for layer_name in results:
-    print(f"\n{layer_name}:")
-    for ct in ['PV', 'E', 'SOM', 'VIP']:
-        if ct not in results[layer_name]:
-            continue
-        freqs, ppc_mean, _ = results[layer_name][ct]
-        vals = ppc_mean[(freqs >= 30) & (freqs <= 50)]
-        if np.any(~np.isnan(vals)):
-            print(f"  {ct}: mean={np.nanmean(vals):.6f}, peak={np.nanmax(vals):.6f}")
+# LFP source 2: kernel bipolar LFP (one channel per layer) 
+channel_depths = np.asarray(data["channel_depths"], dtype=float)
+bipolar = np.asarray(data["bipolar_matrix"], dtype=float)      # (15, T), fs == fs
+t_bipolar = np.arange(bipolar.shape[1]) * dt_sec
+kernel_bipolar_lfp = {
+    layer: (bipolar[bipolar_channel_for_layer(layer, channel_depths)], t_bipolar)
+    for layer in all_spike_trains}
+
+# LFP source 3: current-method bipolar LFP (one channel per layer) 
+
+lfp_curr = np.asarray(data["lfp_current_matrix"], dtype=float)  
+current_bipolar = np.diff(lfp_curr, axis=0)                 
+t_current = np.asarray(data["time_current_ms"], dtype=float) / 1000.0
+fs_current = 1.0 / float(np.mean(np.diff(t_current)))
+print(f"current-method fs = {fs_current:.0f} Hz")
+current_bipolar_lfp = {
+    layer: (current_bipolar[bipolar_channel_for_layer(layer, channel_depths)],
+            t_current)
+    for layer in all_spike_trains}
+
+results_kernel = compute_ppc_for_source(all_spike_trains, kernel_lfp, fs,
+                                        T_DISCARD, t_end)
+plot_ppc(results_kernel, 'Spike-LFP phase locking (PPC)',
+         os.path.join(OUT_DIR, "ppc_spectrum.png"))
+
+results_kernel_bip = compute_ppc_for_source(all_spike_trains, kernel_bipolar_lfp,
+                                            fs, T_DISCARD, t_end)
+plot_ppc(results_kernel_bip, 'Spike-LFP phase locking (PPC)\nkernel bipolar LFP',
+         os.path.join(OUT_DIR, "ppc_spectrum_kernel_bipolar.png"))
+
+results_current_bip = compute_ppc_for_source(all_spike_trains,
+                                             current_bipolar_lfp, fs_current,
+                                             T_DISCARD, t_end)
+plot_ppc(results_current_bip,
+         'Spike-LFP phase locking (PPC)\ncurrent bipolar LFP',
+         os.path.join(OUT_DIR, "ppc_spectrum_current_bipolar.png"))
+
