@@ -22,7 +22,7 @@ from src.analysis import *
 from tools.lfp_kernel import calculate_lfp_kernel_method
 from stim_profiles import build_epoch
 
-STIM_PROFILE = "feedback"
+STIM_PROFILE = "feedforward"
 
 
 def main():
