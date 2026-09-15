@@ -376,12 +376,14 @@ def plot_smooth_power_change_2d(all_trials, common, lfp_key='bipolar_lfp',
 
 if __name__ == '__main__':
     import os
-    BASE_PATH = 'saved_trials/08_08'
+    # BASE_PATH = 'saved_trials/08_08'
+    BASE_PATH = 'saved_trials/14092026TEST'
+
     N_TRIALS = 20
     COMMON = dict(
         pre_window_ms=500,
         post_window_ms=500,
-        post_start_ms=300,
+        post_start_ms=1000,
         freq_range=(0, 120),
         log_freq=False,
         remove_mean=True,
