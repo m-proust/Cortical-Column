@@ -45,7 +45,6 @@ results JSONs and `analytic/`. The abstract's 5 longer runs (100 s, 5 pA) are in
 | --- | --- |
 | `run_pulses.py` | Simulation. Intact column. At an onset every 25 ms the state is stored, and pulses of each dose are given from that same state (0 pA sham, 10, 25, 50, 100 pA for 10 ms into L4C E; or into L6 E; or an LGN volley). The alpha phase is measured afterwards. The docstring has the exact command for the abstract runs |
 | `analyse_gating.py` | One dataset (`EXP5C_LAYER=L4C` or `L6`; add `EXP5C_DIR=exp5c_restore_pulse_LGN` for the LGN volley): pulse − sham response vs phase, with a cosine fit per dose |
-| `plot_summary.py` | Depth of the phase modulation vs input strength, for every condition on one axis |
 | `plot_key_figure.py` | One-panel summary: L4C response vs local alpha phase, weak vs strong vs thalamic input. `abstract_data.py` uses its smoother for Fig. 3B |
 | `phase_x_amplitude.py` | The same, split into thirds of ongoing alpha amplitude: does gating deepen with alpha? `abstract_data.py` uses its loader for Fig. 3B |
 

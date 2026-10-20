@@ -8,16 +8,6 @@ amplitude) comes from the ten networks of the first command below.
     caffeinate -i ~/Desktop/venv/bin/python studies/phase_gating/run_pulses.py --layer L6     # current into L6 E
     caffeinate -i ~/Desktop/venv/bin/python studies/phase_gating/run_pulses.py --input lgn    # thalamic volley
 
-CAUTION: the saved runs date from 26 Sep 2026, before the config/*.csv edits of 29-30 Sep. Re-running with
-today's config/ gives a different network; to reproduce the saved runs, first restore the files in
-<out>/config_snapshot/.
-
-Why this design. One pulse per simulation was underpowered: alpha moves mean E Vm by only ~+-0.4 mV, so for
-a 100 pA pulse (~8.4 mV kick) the predicted phase modulation is ~3-4%. Weaker pulses raise the RELATIVE
-effect (25 pA: alpha = +-20% of the kick) but the absolute effect stays ~0.25 Hz, so the only real fix is
-many more pulses. (The two earlier versions, a Poisson-source pulse and a single current pulse per run,
-are in archive/: exp5_phase_excitability.py, exp5b_current_pulse.py.)
-
 Design, per seed (one continuous run, no targeting):
   onsets on a regular grid (every ONSET_STEP_MS after SETTLE_MS): the alpha phase at each is effectively
   random and is measured AFTERWARDS (non-causal 7-16 Hz Hilbert) from the run's own unpulsed trajectory,
