@@ -1,10 +1,14 @@
-"""Spike-LFP phase locking (PPC) spectrum per layer for one saved trial.
+"""Spike-LFP phase locking (PPC) spectrum per layer, for one trial or averaged over trials.
 
 Run: path/to/venv/bin/python analysis/coupling/ppc_computation.py
 Edit the settings block below to change the trial, analysis window or frequency grid.
+Set TRIAL_GLOB to average the PPC spectra over several trials (the shaded band then
+shows the spread across trials instead of across neurons).
 """
 import os
 import sys
+import glob
+import warnings
 sys.path.insert(0, os.path.abspath(
     os.path.join(os.path.dirname(__file__), '..', '..')))
 import numpy as np
@@ -15,6 +19,7 @@ from config.config import CONFIG
 
 # ---- settings ----
 TRIAL_NPZ = "results/trial_12_06_12s_stimuli/trial_000.npz"
+TRIAL_GLOB = None        # e.g. "saved_trials/ppc_12s/trial_*.npz" to average trials
 T_DISCARD = 2.0          # s skipped at start
 T_ANALYSIS = 10.0        # s analysed
 MIN_SPIKES = 5           # min spikes/neuron to include in PPC
@@ -189,64 +194,101 @@ def print_gamma_summary(results, label):
                       f"peak={np.nanmax(vals):.6f}")
 
 
-# ---- load trial ----
-data = np.load(TRIAL_NPZ, allow_pickle=True)
-spike_data = (data["spike_data"].item() if data["spike_data"].size == 1
-              else data["spike_data"])
-lfp_full_data = (data["lfp_full"].item() if data["lfp_full"].size == 1
-                 else data["lfp_full"])
-dt_sec = float(CONFIG['simulation']['DT'] / second)
-fs = 1.0 / dt_sec
-print(f"dt = {dt_sec*1000} ms, fs = {fs:.0f} Hz")
+def ppc_for_trial(trial_npz):
+    """All three LFP sources for one trial -> {source: {layer: {celltype: (f, mean, sem)}}}"""
+    data = np.load(trial_npz, allow_pickle=True)
+    spike_data = (data["spike_data"].item() if data["spike_data"].size == 1
+                  else data["spike_data"])
+    lfp_full_data = (data["lfp_full"].item() if data["lfp_full"].size == 1
+                     else data["lfp_full"])
+    dt_sec = float(CONFIG['simulation']['DT'] / second)
+    fs = 1.0 / dt_sec
 
-all_spike_trains = {
-    layer: {mon: build_spike_trains(sd["times_ms"], sd["spike_indices"])
-            for mon, sd in layer_mons.items()}
-    for layer, layer_mons in spike_data.items()
+    all_spike_trains = {
+        layer: {mon: build_spike_trains(sd["times_ms"], sd["spike_indices"])
+                for mon, sd in layer_mons.items()}
+        for layer, layer_mons in spike_data.items()
+    }
+    t_end = T_DISCARD + T_ANALYSIS
+
+    # LFP source 1: convolving each E spike with a kernel (same method as in Farzin et al. 2025)
+    kernel_lfp = {layer: (np.asarray(lfp_full_data[layer], dtype=float),
+                          np.arange(len(lfp_full_data[layer])) * dt_sec)
+                  for layer in all_spike_trains}
+
+    # LFP source 2: kernel bipolar LFP (one channel per layer)
+    channel_depths = np.asarray(data["channel_depths"], dtype=float)
+    bipolar = np.asarray(data["bipolar_matrix"], dtype=float)
+    t_bipolar = np.arange(bipolar.shape[1]) * dt_sec
+    kernel_bipolar_lfp = {
+        layer: (bipolar[bipolar_channel_for_layer(layer, channel_depths)], t_bipolar)
+        for layer in all_spike_trains}
+
+    # LFP source 3: current-method bipolar LFP (one channel per layer)
+    lfp_curr = np.asarray(data["lfp_current_matrix"], dtype=float)
+    current_bipolar = np.diff(lfp_curr, axis=0)
+    t_current = np.asarray(data["time_current_ms"], dtype=float) / 1000.0
+    fs_current = 1.0 / float(np.mean(np.diff(t_current)))
+    current_bipolar_lfp = {
+        layer: (current_bipolar[bipolar_channel_for_layer(layer, channel_depths)],
+                t_current)
+        for layer in all_spike_trains}
+
+    return {
+        'kernel':      compute_ppc_for_source(all_spike_trains, kernel_lfp, fs,
+                                              T_DISCARD, t_end),
+        'kernel_bip':  compute_ppc_for_source(all_spike_trains, kernel_bipolar_lfp,
+                                              fs, T_DISCARD, t_end),
+        'current_bip': compute_ppc_for_source(all_spike_trains, current_bipolar_lfp,
+                                              fs_current, T_DISCARD, t_end),
+    }
+
+
+def average_trials(per_trial):
+    """Mean PPC across trials; the error band becomes the SEM across trials."""
+    out = {}
+    for source in per_trial[0]:
+        out[source] = {}
+        for layer in per_trial[0][source]:
+            out[source][layer] = {}
+            for ct in per_trial[0][source][layer]:
+                freqs = per_trial[0][source][layer][ct][0]
+                stack = np.array([t[source][layer][ct][1] for t in per_trial
+                                  if ct in t[source].get(layer, {})])
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", RuntimeWarning)
+                    mean = np.nanmean(stack, axis=0)
+                    n = np.sum(~np.isnan(stack), axis=0)
+                    sem = np.nanstd(stack, axis=0) / np.sqrt(np.maximum(n, 1))
+                out[source][layer][ct] = (freqs, mean, sem)
+    return out
+
+
+TITLES = {
+    'kernel':      ('Spike-LFP phase locking (PPC)', 'ppc_spectrum.png'),
+    'kernel_bip':  ('Spike-LFP phase locking (PPC)\nkernel bipolar LFP',
+                    'ppc_spectrum_kernel_bipolar.png'),
+    'current_bip': ('Spike-LFP phase locking (PPC)\ncurrent bipolar LFP',
+                    'ppc_spectrum_current_bipolar.png'),
 }
 
-t_end = T_DISCARD + T_ANALYSIS
 os.makedirs(OUT_DIR, exist_ok=True)
 
-# LFP source 1: convolving each E spike with a kernel (same method as in Farzin et al. 2025)
-kernel_lfp = {layer: (np.asarray(lfp_full_data[layer], dtype=float),
-                      np.arange(len(lfp_full_data[layer])) * dt_sec)
-              for layer in all_spike_trains}
+if TRIAL_GLOB:
+    files = sorted(glob.glob(TRIAL_GLOB))
+    if not files:
+        raise SystemExit(f"TRIAL_GLOB matched no files: {TRIAL_GLOB}")
+    print(f"averaging {len(files)} trials")
+    per_trial = []
+    for i, f in enumerate(files):
+        print(f"[{i+1}/{len(files)}] {f}")
+        per_trial.append(ppc_for_trial(f))
+    results = average_trials(per_trial)
+    suffix = f" (mean of {len(files)} trials)"
+else:
+    print(f"single trial: {TRIAL_NPZ}")
+    results = ppc_for_trial(TRIAL_NPZ)
+    suffix = ""
 
-# LFP source 2: kernel bipolar LFP (one channel per layer) 
-channel_depths = np.asarray(data["channel_depths"], dtype=float)
-bipolar = np.asarray(data["bipolar_matrix"], dtype=float)      # (15, T), fs == fs
-t_bipolar = np.arange(bipolar.shape[1]) * dt_sec
-kernel_bipolar_lfp = {
-    layer: (bipolar[bipolar_channel_for_layer(layer, channel_depths)], t_bipolar)
-    for layer in all_spike_trains}
-
-# LFP source 3: current-method bipolar LFP (one channel per layer) 
-
-lfp_curr = np.asarray(data["lfp_current_matrix"], dtype=float)  
-current_bipolar = np.diff(lfp_curr, axis=0)                 
-t_current = np.asarray(data["time_current_ms"], dtype=float) / 1000.0
-fs_current = 1.0 / float(np.mean(np.diff(t_current)))
-print(f"current-method fs = {fs_current:.0f} Hz")
-current_bipolar_lfp = {
-    layer: (current_bipolar[bipolar_channel_for_layer(layer, channel_depths)],
-            t_current)
-    for layer in all_spike_trains}
-
-results_kernel = compute_ppc_for_source(all_spike_trains, kernel_lfp, fs,
-                                        T_DISCARD, t_end)
-plot_ppc(results_kernel, 'Spike-LFP phase locking (PPC)',
-         os.path.join(OUT_DIR, "ppc_spectrum.png"))
-
-results_kernel_bip = compute_ppc_for_source(all_spike_trains, kernel_bipolar_lfp,
-                                            fs, T_DISCARD, t_end)
-plot_ppc(results_kernel_bip, 'Spike-LFP phase locking (PPC)\nkernel bipolar LFP',
-         os.path.join(OUT_DIR, "ppc_spectrum_kernel_bipolar.png"))
-
-results_current_bip = compute_ppc_for_source(all_spike_trains,
-                                             current_bipolar_lfp, fs_current,
-                                             T_DISCARD, t_end)
-plot_ppc(results_current_bip,
-         'Spike-LFP phase locking (PPC)\ncurrent bipolar LFP',
-         os.path.join(OUT_DIR, "ppc_spectrum_current_bipolar.png"))
-
+for source, (ylabel, fname) in TITLES.items():
+    plot_ppc(results[source], ylabel + suffix, os.path.join(OUT_DIR, fname))

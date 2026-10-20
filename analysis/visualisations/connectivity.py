@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib as mpl
 
-from config.config import CONFIG
+from config.configL6 import CONFIG
 
 # parameters
 OUT_DIR = "figures/connectivity"

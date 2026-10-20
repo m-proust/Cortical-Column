@@ -276,7 +276,7 @@ def plot_laminar_pct_change_3d(freqs, depths, pct_change,
                                clip_percentile=99,
                                title_suffix=''):
     """3D surface of % power change (freq x depth)."""
-    pct = np.asarray(pct_change)  # row 0 = top of cortex (already flipud'd)
+    pct = np.asarray(pct_change)  
     depth_axis = np.linspace(depths.max(), depths.min(), pct.shape[0])
 
     if upsample_depth and upsample_depth > 1 and pct.shape[0] > 1:
@@ -378,8 +378,10 @@ if __name__ == '__main__':
     import os
     # BASE_PATH = 'saved_trials/08_08'
     BASE_PATH = 'saved_trials/14092026TEST'
+    # BASE_PATH = 'saved_trials/ff_30_09_26'
 
-    N_TRIALS = 20
+
+    N_TRIALS = 12
     COMMON = dict(
         pre_window_ms=500,
         post_window_ms=500,

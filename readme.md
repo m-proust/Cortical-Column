@@ -34,6 +34,9 @@ Cortical-Column/
 ├── tools/             # helpers 
 ├── experiments/       # lesions, etc
 ├── analysis/          # scripts for plotting saved trials
+├── minimal_config/    # one isolated layer (rate-matched), used by the studies
+├── studies/           # self-contained studies: resonance, phase gating, feedback, Cosyne abstract
+├── archive/           # old prototypes, kept for reference
 ```
 
 ---

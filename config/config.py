@@ -85,9 +85,13 @@ else:
     _SUPPRESSED_INTER_LAYER = [tuple(_env_lesion.split(','))]
 _SUPPRESS_ALL_INTER_LAYER = False
 
+# Lesioned pairs are NOT removed from the dicts: the column still builds their
+# Synapses and then silences them. Building them keeps the RNG stream identical,
+# so every other pathway's wiring and the heterogeneity match the intact network.
+# (Popping them skipped their connect()/delay draws and re-randomised everything
+# built afterwards, so each lesion was also a different network.)
 if _SUPPRESS_ALL_INTER_LAYER:
-    _INTER_LAYER_CONNECTIONS = {}
-    _INTER_LAYER_CONDUCTANCES = {}
+    _LESIONED_INTER_LAYER = sorted(_INTER_LAYER_CONNECTIONS.keys())
 else:
     for _pair in _SUPPRESSED_INTER_LAYER:
         if _pair not in _INTER_LAYER_CONNECTIONS:
@@ -96,15 +100,14 @@ else:
                 f"_INTER_LAYER_CONNECTIONS. Available pairs: "
                 f"{sorted(_INTER_LAYER_CONNECTIONS.keys())}"
             )
-        _INTER_LAYER_CONNECTIONS.pop(_pair, None)
-        _INTER_LAYER_CONDUCTANCES.pop(_pair, None)
+    _LESIONED_INTER_LAYER = list(_SUPPRESSED_INTER_LAYER)
 
 _LAYER_CONFIGS = {
     'L23': {
         'connection_prob': csv_layer_configs['L23']['connection_prob'],
         'conductance': csv_layer_configs['L23']['conductance'],
         'poisson_inputs': {
-            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 24},
+            'E':        {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 20},
             'PV':       {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 12},         
             'VIP':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 16},
             'SOM':      {'target': 'gE_AMPA', 'weight': 'EXT_AMPA', 'N': 16},
@@ -456,7 +459,23 @@ CONFIG = {
     
     'inter_layer_connections': _INTER_LAYER_CONNECTIONS,
     'inter_layer_conductances': _INTER_LAYER_CONDUCTANCES,
+    'lesioned_inter_layer': _LESIONED_INTER_LAYER,   # built, then silenced
     'inter_layer_scaling': 1.0,
+
+    # Constant currents (pA) main_laminar.py injects during its LESION="all" epoch
+    # to hold lesioned rates at their intact values. {layer: {pop: pA}}; a missing
+    # population gets 0 pA. Calibrated with seed 58925, E only, on the dev2 config;
+    # brought every layer within 0.06 Hz of intact (L23 E 1.49 Hz intact, 0.05 Hz
+    # lesioned, 1.42 Hz compensated). Re-derive with COMPENSATE="auto" after any
+    # config change.
+    'lesion_compensation': {
+        'L23':  {'E': 54.5},
+        'L4AB': {'E': 28.6},
+        'L4C':  {'E': 8.6},
+        'L5':   {'E': 13.4},
+        'L6':   {'E': 20.9},
+    },
+
     'electrode_positions' : [
         (0, 0, -0.94),
         (0, 0, -0.79),

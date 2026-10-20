@@ -50,7 +50,7 @@ def main():
     column.network.add(*base_inputs)
     column.network.run(baseline_time * ms)
 
-    # ---- stimulus epoch ----
+    # # ---- stimulus epoch ----
     stim_inputs = build_epoch(STIM_PROFILE, "stim", column, w_ext_AMPA, w_ext_NMDA)
     column.network.add(*stim_inputs)
     column.network.run(stimuli_time * ms)
@@ -106,7 +106,7 @@ def main():
                         baseline_time=baseline_time,
                         pre_stim_duration=1500,
                         post_stim_duration=1500,
-                        transient_skip=200
+                        transient_skip=700
                     )
 
 

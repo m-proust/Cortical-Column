@@ -1,0 +1,5 @@
+L6_E+SOM_noadapt
+L6_noadaptSOM
+L6_noadapt
+L6_meanw
+L6_fastadapt_b

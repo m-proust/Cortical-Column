@@ -217,6 +217,9 @@ def run_single_trial(
         "network_seed": network_seed,
         "stim_seed": stim_seed,
         "stim_profile": STIM_PROFILE,
+        # inter-layer pairs built but silenced (LESION_PAIR); empty = intact
+        "lesioned_inter_layer": np.array(CONFIG.get('lesioned_inter_layer', []),
+                                         dtype=object),
         "time_array_ms": np.array(time_array),
         "electrode_positions": np.array(electrode_positions),
         "channel_labels": np.array(channel_labels, dtype=object),

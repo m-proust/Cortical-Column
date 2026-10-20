@@ -1,0 +1,28 @@
+{
+  "name": "L6",
+  "source": "L6 block of config/*.csv (2026-09-29)",
+  "neuron_counts": {
+    "E": 2040,
+    "PV": 195,
+    "SOM": 110,
+    "VIP": 70
+  },
+  "poisson_N": {
+    "E": 45,
+    "PV": 44,
+    "SOM": 28,
+    "VIP": 16
+  },
+  "target_rates_hz": {
+    "E": 1.6,
+    "PV": 6.05,
+    "SOM": 3.8,
+    "VIP": 2.16
+  },
+  "matched_rates_hz": {
+    "E": 1.574,
+    "PV": 5.69,
+    "SOM": 3.644,
+    "VIP": 2.291
+  }
+}

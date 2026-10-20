@@ -12,4 +12,4 @@ project root, e.g. `python experiments/run_lesion_experiment.py`.
 | `cleo/trials_cleo.py` | runs [Cleo](https://github.com/siplab-gt/cleo) electrode-recording trials |
 
 Each script has a settings block at the top (number of trials, save folder, etc) that you can edit. Results are saved into `saved_trials/` by default. Plot them
-with the scripts in [../analysis/](../analysis/).
+with the scripts in [../analysis/](../analysis/). Self-contained studies (simulations and their analysis together) are in [../studies/](../studies/README.md).

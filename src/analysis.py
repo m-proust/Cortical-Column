@@ -3,8 +3,11 @@ import numpy as np
 from brian2 import *
 
 
-def add_heterogeneity_to_layer(layer, config, scale=1.0):
-    """Jitter intrinsic params of every neuron group. scale multiplies each sigma."""
+def add_heterogeneity_to_layer(layer, config, scale=None):
+    """Jitter intrinsic params of every neuron group. scale multiplies each sigma
+    (default: config['heterogeneity_scale'], else 1; 0 gives identical neurons)."""
+    if scale is None:
+        scale = config.get('heterogeneity_scale', 1.0)
     for pop_name, neuron_group in layer.neuron_groups.items():
         n = len(neuron_group)
         base = config['intrinsic_params'][pop_name]

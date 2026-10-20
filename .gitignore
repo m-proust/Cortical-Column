@@ -6,8 +6,11 @@
 /results
 /figures
 /saved_trials
+/archive
 .DS_Store
 /venv
 *.png
 *.db
 *.npz
+logs/
+.run_experiments.lock/

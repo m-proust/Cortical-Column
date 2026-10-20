@@ -5,6 +5,26 @@ from .layer import CorticalLayer
 from cleo import ephys
 
 
+def silence_lesioned(inter_layer_synapses, lesioned_pairs):
+    """Deactivate every inter-layer Synapses object of a lesioned (src, tgt) pair.
+
+    Lesioned pathways are still built, so their connect()/delay random draws are
+    consumed and the rest of the network is wired exactly as when intact; only
+    their transmission is switched off. Names are "{src}_{tgt}_{pre}_{post}" and
+    layer names contain no underscore.
+    """
+    lesioned = {tuple(p) for p in lesioned_pairs}
+    silenced = []
+    for name, syn in inter_layer_synapses.items():
+        if tuple(name.split('_')[:2]) in lesioned:
+            syn.active = False
+            silenced.append(name)
+    missing = lesioned - {tuple(n.split('_')[:2]) for n in silenced}
+    if missing:
+        raise ValueError(f"lesioned pair(s) {sorted(missing)} built no synapses")
+    return silenced
+
+
 class CorticalColumn:
 
     
@@ -158,8 +178,11 @@ class CorticalColumn:
                     )
                     syn.connect(p=float(prob))
                     syn.delay = delay_expr
-                    
+
                     self.inter_layer_synapses[connection_name] = syn
+
+        silence_lesioned(self.inter_layer_synapses,
+                         self.config.get('lesioned_inter_layer', []))
 
     def get_layer(self, layer_name):
         return self.layers.get(layer_name)

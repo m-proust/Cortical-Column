@@ -22,8 +22,8 @@ from analysis.spectral.laminar_power_change import (
     load_trials, _time_vector_for_key)
 
 # parameters
-LESION_ROOT = "saved_trials/lesions_2026-06-03"
-FIG_ROOT = "figures/lesions_2026-06-03/_significance_cluster"
+LESION_ROOT = "saved_trials/lesions_2026-09-24"
+FIG_ROOT = "figures/lesions_2026-09-24/_significance_cluster"
 N_PERM = 1000
 WINDOW_MS = 3000           # PSD window at end of trial
 FREQ_RANGE = (1, 100)

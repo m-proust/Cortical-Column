@@ -145,6 +145,8 @@ class CorticalLayer:
             ('VIP', 'VIP'): (3.8, 1.0),
         }
     
+        # optional config override: {(pre, post): (mean_ms, std_ms)}, e.g. all (0, 0)
+        delay_table.update(self.config.get('intra_layer_delays', {}))
         mean_ms, std_ms = delay_table.get((pre_pop, post_pop), (1.5, 0.5))
         return mean_ms * ms, std_ms * ms
 
