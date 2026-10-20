@@ -1,34 +1,3 @@
-"""Alpha-phase gating of excitability: many weak pulses per run, via store()/restore().
-
-Cosyne abstract Fig. 3B (L4C response to a 25 pA pulse vs the local alpha phase, split by alpha
-amplitude) comes from the ten networks of the first command below.
-
-    caffeinate -i ~/Desktop/venv/bin/python studies/phase_gating/run_pulses.py \
-        --seeds 58881 20260923 777001 31415 27182 101 202 303 404 505 --out saved_trials/cosyne/pulse_gating_L4C
-    caffeinate -i ~/Desktop/venv/bin/python studies/phase_gating/run_pulses.py --layer L6     # current into L6 E
-    caffeinate -i ~/Desktop/venv/bin/python studies/phase_gating/run_pulses.py --input lgn    # thalamic volley
-
-Design, per seed (one continuous run, no targeting):
-  onsets on a regular grid (every ONSET_STEP_MS after SETTLE_MS): the alpha phase at each is effectively
-  random and is measured AFTERWARDS (non-causal 7-16 Hz Hilbert) from the run's own unpulsed trajectory,
-  as in human phase studies
-  at each onset: store() -> for each dose (0 = sham): input on, run to +WIN_MS, read spikes, restore()
-  -> continue to the next onset
-RNG: store()/restore() does not rewind Brian's random numbers, so every dose of one onset starts from the
-same state but gets its own noise; hence the per-onset sham and the post-hoc phase instead of probe-based
-targeting. Only E spike monitors are kept (big monitors would be copied by every store()).
-
-Inputs
-  current  10 ms current step into the target layer's E cells; doses in pA
-  lgn      a thalamic volley: N_LGN sources, each firing ONE spike at a fixed per-source offset
-           (0-LGN_JITTER_MS); dose = number of sources that fire. Wiring from the documented LGN
-           design (project notes): L4C E p .12 w 1x, L4C PV p .22 w 2.5x, L6 E p .04 w 1.5x, L6 PV p .07 w 3x
-           (w = EXT_AMPA), 1 ms delay. Deterministic, and it recruits PV feedforward inhibition.
-
-Saved per seed (<out>/seed<seed>.npz): onsets, L6 / L4C phase and amplitude at each onset, and per
-onset x dose x layer the E spike counts in 5-ms bins 0..WIN_MS. Analysis: analyse_gating.py,
-plot_summary.py, plot_key_figure.py, phase_x_amplitude.py.
-"""
 import argparse
 import os
 import shutil

@@ -49,9 +49,7 @@ results JSONs and `analytic/`. The abstract's 5 longer runs (100 s, 5 pA) are in
 | `phase_x_amplitude.py` | The same, split into thirds of ongoing alpha amplitude: does gating deepen with alpha? `abstract_data.py` uses its loader for Fig. 3B |
 
 Data: `saved_trials/exp5c_restore_pulse_{L4C,L6,LGN}/`; the abstract's 10 networks are in
-`saved_trials/cosyne/pulse_gating_L4C/`. Figures go to `figures/exp5_phase/`. **The saved runs are older than
-the `config/*.csv` edits of 29–30 Sep 2026.** To reproduce them, first restore `config_snapshot/` from the
-data folder.
+`saved_trials/cosyne/pulse_gating_L4C/`. Figures go to `figures/exp5_phase/`. 
 
 ## feedback
 
@@ -69,7 +67,7 @@ Intact column with feed-forward input from 0 ms, plus feedback input to L2/3 and
 | `analyze.py` | Abstract 3C, 3D step 1: multitaper power change pre vs post feedback, per layer, and a cosine fit of pulse − sham vs phase → `metrics.json`, `RESULTS.md` |
 | `plot_phase_feedback.py` | Abstract 3D step 2: mean phase curves per condition with bootstrap intervals → `phase_curves/` |
 
-Data: `saved_trials/cosyne/feedback_protocol/`. The Brian cache goes to `~/Library/Caches/cython/feedback_protocol`.
+Data: `saved_trials/cosyne/feedback_protocol/`. 
 
 ## cosyne_abstract
 
@@ -107,11 +105,3 @@ How the panels are computed:
 - **3B.** Pulse (25 pA) minus sham L4C E rate, 0–20 ms after onset, against the local 7–16 Hz alpha phase, split into
   thirds of ongoing alpha amplitude ranked within each network. Kernel smoother (SD 25°), 95 % bootstrap over networks.
 
-Notes for re-running:
-- **Rate matching.** The isolated-layer drivers rate-match each condition once (`minimal_config/match_rates.py`) and
-  store the background Poisson N in `minimal_config/experiments/tuned_N.json`. Re-runs reuse it;
-  `run_layer_replay.sh --rematch` redoes it for the replay pairs.
-- **The isolated-layer runs read the current config.** L6 comes from `minimal_config`'s own CSVs, but the other
-  layers come from the working copy of `config/*.csv`, so an edit there changes the L2/3, L4 and L5 runs.
-- **Known mismatch.** `transplant.dat` differs from the abstract's copy (`--check` reports it). This was already the
-  case before the reorganisation of 20 Oct 2026.
